@@ -19,6 +19,18 @@ static struct dai esai[] = {
 	.index = 0,
 	.plat_data = {
 		.base = ESAI_BASE,
+		.fifo[SOF_IPC_STREAM_PLAYBACK] = {
+			.offset		= ESAI_BASE + REG_ESAI_ETDR,
+			.depth		= 384,  /* in bytes */
+			.handshake	= EDMA_HANDSHAKE(EDMA_ESAI_IRQ,
+							 EDMA_ESAI_TX_CHAN),
+		},
+		.fifo[SOF_IPC_STREAM_CAPTURE] = {
+			.offset		= ESAI_BASE + REG_ESAI_ERDR,
+			.depth		= 384,  /* in bytes */
+			.handshake	= EDMA_HANDSHAKE(EDMA_ESAI_IRQ,
+							 EDMA_ESAI_RX_CHAN),
+		},
 	},
 	.drv = &esai_driver,
 },
