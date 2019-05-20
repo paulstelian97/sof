@@ -1292,5 +1292,5 @@ int ipc_process_msg_queue(void)
 
 void ipc_schedule_process(struct ipc *ipc)
 {
-	schedule_task(&ipc->ipc_task, 0, 100);
+	schedule_task(&ipc->ipc_task, 0, 50000);
 }
