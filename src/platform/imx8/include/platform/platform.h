@@ -13,6 +13,8 @@
 #if !defined(__ASSEMBLER__) && !defined(LINKER)
 
 #include <arch/lib/wait.h>
+#include <sof/lib/memory.h> // Required by below, below is broken
+#include <sof/drivers/mu.h>
 #include <sof/drivers/interrupt.h>
 #include <sof/lib/clk.h>
 #include <sof/lib/mailbox.h>
@@ -84,9 +86,13 @@ struct timer;
 /* DSP default delay in cycles */
 #define PLATFORM_DEFAULT_DELAY	12
 
+int __dsp_printf(char *format, ...);
+
 /* Platform defined panic code */
 static inline void platform_panic(uint32_t p)
 {
+	__dsp_printf("Platform panic, p = %x\n", p);
+	imx_mu_xcr_rmw(IMX_MU_xCR_GIRn(1), 0);
 }
 
 /**
