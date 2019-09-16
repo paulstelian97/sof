@@ -67,7 +67,7 @@ static void irq_handler(void *arg)
 	ctrl = imx_mu_read(IMX_MU_xCR);
 	status = imx_mu_read(IMX_MU_xSR);
 
-	trace_ipc("ipc: irq isr 0x%x", status);
+	tracev_ipc("ipc: irq isr 0x%x", status);
 
 	/* reply message(done) from host */
 	if (status & IMX_MU_xSR_GIPn(1)) {
