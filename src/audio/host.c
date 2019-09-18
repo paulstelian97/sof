@@ -365,11 +365,14 @@ static struct comp_dev *host_new(struct sof_ipc_comp *comp)
 
 	comp_set_drvdata(dev, hd);
 
+	trace_host("host_new() dev: %p", (intptr_t)dev);
+	trace_host("host_new() hd: %p", (intptr_t)hd);
+
 	/* request HDA DMA with shared access privilege */
 	dir = ipc_host->direction == SOF_IPC_STREAM_PLAYBACK ?
 		DMA_DIR_HMEM_TO_LMEM : DMA_DIR_LMEM_TO_HMEM;
 
-	return dev;
+	//return dev;
 	hd->dma = dma_get(dir, 0, DMA_DEV_HOST, DMA_ACCESS_SHARED);
 	if (!hd->dma) {
 		trace_host_error("host_new() error: dma_get() returned NULL");
@@ -377,6 +380,7 @@ static struct comp_dev *host_new(struct sof_ipc_comp *comp)
 		rfree(dev);
 		return NULL;
 	}
+	tracev_host("host_new() got dma ID %d (expected 1)", hd->dma->plat_data.id);
 
 	/* init buffer elems */
 	dma_sg_init(&hd->config.elem_array);
@@ -451,9 +455,12 @@ static int host_params(struct comp_dev *dev)
 	int err;
 
 	trace_host_with_ids(dev, "host_params()");
+	tracev_host("dev is %p", (intptr_t)(void *)dev);
+	tracev_host("hd->dma is %p", (intptr_t)(void *)hd->dma);
 
 	/* host params always installed by pipeline IPC */
 	hd->host_size = dev->params.buffer.size;
+	tracev_host("host_params(): Got host size; if this shows we're good for now");
 
 	/* retrieve DMA buffer address alignment */
 	err = dma_get_attribute(hd->dma, DMA_ATTR_BUFFER_ADDRESS_ALIGNMENT,
@@ -464,6 +471,7 @@ static int host_params(struct comp_dev *dev)
 					  "err = %d", err);
 		return err;
 	}
+	tracev_host("host_params() got DMA buffer alignment");
 
 	/* retrieve DMA buffer size alignment */
 	err = dma_get_attribute(hd->dma, DMA_ATTR_BUFFER_ALIGNMENT, &align);
@@ -545,13 +553,17 @@ static int host_params(struct comp_dev *dev)
 	config->is_scheduling_source = comp_is_scheduling_source(dev);
 	config->period = dev->pipeline->ipc_pipe.period;
 
+	tracev_host("host_params() about to call host_elements_reset");
 	host_elements_reset(dev);
+	tracev_host("host_params() elements reset ok");
 
 	dev->params.stream_tag -= 1;
 	/* get DMA channel from DMAC
 	 * note: stream_tag is ignored by dw-dma
 	 */
+	tracev_host("host_params() before dma_channel_get");
 	hd->chan = dma_channel_get(hd->dma, dev->params.stream_tag);
+	tracev_host("host_params() after dma_channel_get");
 	if (!hd->chan) {
 		trace_host_error_with_ids(dev, "host_params() error: "
 					  "hd->chan is NULL");
@@ -559,6 +571,7 @@ static int host_params(struct comp_dev *dev)
 	}
 
 	err = dma_set_config(hd->chan, &hd->config);
+	tracev_host("host_params(0 after dma_set_config");
 	if (err < 0) {
 		trace_host_error_with_ids(dev, "host_params() error: "
 					  "dma_set_config() failed");
@@ -638,11 +651,15 @@ static int host_reset(struct comp_dev *dev)
 	struct host_data *hd = comp_get_drvdata(dev);
 
 	trace_host_with_ids(dev, "host_reset()");
+	tracev_host("dev is %p", (intptr_t)dev);
+	tracev_host("hd is %p", (intptr_t)hd);
+	tracev_host("hd->chan is %d", hd->chan->index);
 
 	if (hd->chan)
 		dma_channel_put(hd->chan);
 
 	/* free all DMA elements */
+	tracev_host("host_reset about to free sg elements");
 	dma_sg_free(&hd->host.elem_array);
 	dma_sg_free(&hd->local.elem_array);
 	dma_sg_free(&hd->config.elem_array);
@@ -656,6 +673,7 @@ static int host_reset(struct comp_dev *dev)
 	/* reset dma channel as we have put it */
 	hd->chan = NULL;
 
+	tracev_host("host_reset about to do host_pointer_reset");
 	host_pointer_reset(dev);
 	hd->copy_type = COMP_COPY_NORMAL;
 	hd->source = NULL;

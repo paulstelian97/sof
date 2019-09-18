@@ -185,5 +185,11 @@ int platform_init(struct sof *sof)
 
 	dai_probe(esai);
 
+#if CONFIG_TRACE
+	/* Initialize DMA for Trace */
+	trace_point(TRACE_BOOT_PLATFORM_DMA_TRACE);
+	dma_trace_init_complete(sof->dmat);
+#endif
+
 	return 0;
 }
