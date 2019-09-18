@@ -18,9 +18,11 @@
 #define DMA_ID_EDMA0	0
 #define DMA_ID_HOST	1
 
-/* TODO fix IRQ numbers */
-#define dma_chan_irq(dma, chan) (dma_irq(dma) + chan)
-#define dma_chan_irq_name(dma, chan) dma_irq_name(dma)
+/* TODO Remove hardcoded interrupt values
+ * These values work for channels 6 and 7, used for ESAI
+ */
+#define dma_chan_irq(dma, chan) 58
+#define dma_chan_irq_name(dma, chan) "irqsteer6"
 
 int dmac_init(void);
 
