@@ -181,6 +181,7 @@ static void irqstr_unmask_int(uint32_t irq)
 }
 
 /* Hack, unmask ALL IRQ_STR interrupts */
+__attribute__((unused))
 static void irqstr_unmask_all(void)
 {
 	uint32_t reg;
@@ -411,7 +412,7 @@ void platform_interrupt_init(void)
 		interrupt_cascade_register(dsp_irq + i);
 
 	/* Hack: unmask every interrupt */
-	irqstr_unmask_all();
+	//irqstr_unmask_all();
 }
 
 void platform_interrupt_set(uint32_t irq)
