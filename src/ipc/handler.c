@@ -1117,6 +1117,9 @@ void ipc_cmd(struct sof_ipc_cmd_hdr *hdr)
 
 	type = iGS(hdr->cmd);
 
+	trace_ipc("IPC type: %d", type);
+	trace_ipc("IPC iCS: %d", iCS(hdr->cmd));
+
 	switch (type) {
 	case SOF_IPC_GLB_REPLY:
 		ret = 0;
@@ -1156,7 +1159,7 @@ void ipc_cmd(struct sof_ipc_cmd_hdr *hdr)
 		break;
 	}
 out:
-	tracev_ipc("ipc: last request %d returned %d", type, ret);
+	trace_ipc("ipc: last request 0x%08x returned %d", type, ret);
 
 	/* if ret > 0, reply created and copied by cmd() */
 	if (ret <= 0) {
