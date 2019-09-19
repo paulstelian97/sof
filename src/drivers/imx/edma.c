@@ -548,12 +548,22 @@ load_cached:
 	return 0;
 }
 
+static int counter = 0;
+static int counter2 = 0;
+
 static void edma_chan_irq(struct dma_chan_data *channel)
 {
 	struct dma_cb_data next = {
 		.status = DMA_CB_STATUS_RELOAD,
 	};
 
+	counter++;
+
+	if (counter == 1000) {
+		counter2++;
+		trace_edma_error("EDMA: Got %d000 interrupts!", counter2);
+		counter = 0;
+	}
 	if (!channel->cb)
 		return;
 	if (!(channel->cb_type & DMA_CB_TYPE_IRQ))

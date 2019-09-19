@@ -67,7 +67,7 @@ static void irq_handler(void *arg)
 	ctrl = imx_mu_read(IMX_MU_xCR);
 	status = imx_mu_read(IMX_MU_xSR);
 
-	tracev_ipc("ipc: irq isr 0x%x", status);
+	trace_ipc("ipc: irq isr 0x%x", status);
 
 	/* reply message(done) from host */
 	if (status & IMX_MU_xSR_GIPn(1)) {
@@ -107,6 +107,7 @@ static void irq_handler(void *arg)
 void ipc_platform_do_cmd(struct ipc *ipc)
 {
 	struct sof_ipc_cmd_hdr *hdr;
+	trace_ipc("ipc_platform_do_cmd");
 	/* Use struct ipc_data *iipc = ipc_get_drvdata(ipc); if needed */
 
 	/* perform command */
