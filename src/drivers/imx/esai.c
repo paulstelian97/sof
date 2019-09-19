@@ -312,8 +312,8 @@ static void esai_start(struct dai *dai, int direction)
 	/* Write a few zero samples, one per channel, for initialization */
 	/* TODO determine the correct number of samples, assuming 2 */
 	if (direction) {
-		dai_write(dai, REG_ESAI_ETDR, 0);
-		dai_write(dai, REG_ESAI_ETDR, 0);
+		for (int i = 0; i < 96; i++)
+			dai_write(dai, REG_ESAI_ETDR, 0);
 	}
 
 	dai_update_bits(dai, REG_ESAI_xCR(direction),
