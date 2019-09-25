@@ -10,6 +10,7 @@
 #include <sof/audio/pipeline.h>
 #include <sof/common.h>
 #include <sof/debug/panic.h>
+#include <sof/drivers/edma.h>
 #include <sof/drivers/ipc.h>
 #include <sof/drivers/timer.h>
 #include <sof/lib/alloc.h>
@@ -664,6 +665,7 @@ static int dai_config(struct comp_dev *dev, struct sof_ipc_dai_config *config)
 	struct dai_data *dd = comp_get_drvdata(dev);
 	int channel = 0;
 	int i;
+	int handshake = dai_get_handshake(dd->dai, dev->params.direction, dd->stream_id);
 
 	trace_dai("config comp %d pipe %d dai %d type %d", dev->comp.id,
 		  dev->comp.pipeline_id, config->dai_index, config->type);
@@ -780,6 +782,11 @@ static int dai_config(struct comp_dev *dev, struct sof_ipc_dai_config *config)
 				   channel);
 		break;
 	case SOF_DAI_IMX_ESAI:
+		channel = EDMA_HS_GET_CHAN(handshake);
+		trace_dai_with_ids(dev, "dai_config() has done ESAI specific channel selection");
+		dd->frame_bytes = 4; /* The ESAI works with 24 bit samples, padded to 32 bits */
+		if (dev->params.frame_fmt == SOF_IPC_FRAME_S16_LE)
+			dd->frame_bytes = 2; /* The other formats have 4 bytes */
 		break;
 	default:
 		/* other types of DAIs not handled for now */
@@ -792,12 +799,14 @@ static int dai_config(struct comp_dev *dev, struct sof_ipc_dai_config *config)
 		break;
 	}
 
+	trace_dai("dai_config() dd->frame_bytes = %d", dd->frame_bytes);
 	if (!dd->frame_bytes) {
 		trace_dai_error_with_ids(dev, "dai_config() error: "
 					 "dd->frame_bytes == 0");
 		return -EINVAL;
 	}
 
+	trace_dai("dai_config() channel = %d", channel);
 	if (channel != DMA_CHAN_INVALID) {
 		if (!dd->chan)
 			/* get dma channel at first config only */

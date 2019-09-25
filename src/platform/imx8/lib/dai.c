@@ -5,6 +5,7 @@
 // Author: Daniel Baluta <daniel.baluta@nxp.com>
 
 #include <sof/common.h>
+#include <sof/drivers/edma.h>
 #include <sof/drivers/esai.h>
 #include <sof/lib/dai.h>
 #include <sof/lib/memory.h>
@@ -15,6 +16,16 @@ static struct dai esai[] = {
 	.index = 0,
 	.plat_data = {
 		.base = ESAI_BASE,
+		.fifo[SOF_IPC_STREAM_PLAYBACK] = {
+			.offset		= ESAI_BASE + REG_ESAI_ETDR,
+			.handshake	= EDMA_HANDSHAKE(EDMA_ESAI_IRQ,
+							 EDMA_ESAI_TX_CHAN),
+		},
+		.fifo[SOF_IPC_STREAM_CAPTURE] = {
+			.offset		= ESAI_BASE + REG_ESAI_ERDR,
+			.handshake	= EDMA_HANDSHAKE(EDMA_ESAI_IRQ,
+							 EDMA_ESAI_RX_CHAN),
+		},
 	},
 	.drv = &esai_driver,
 },
