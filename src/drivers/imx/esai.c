@@ -35,6 +35,51 @@ struct esai_pdata {
 	} regs;
 };
 
+struct esai_pdata {
+	struct {
+		uint32_t ecr;
+		uint32_t tfcr;
+		uint32_t rfcr;
+		uint32_t saicr;
+		uint32_t tcr;
+		uint32_t tccr;
+		uint32_t rcr;
+		uint32_t rccr;
+		uint32_t tsma;
+		uint32_t tsmb;
+		uint32_t rsma;
+		uint32_t rsmb;
+		uint32_t prrc;
+		uint32_t pcrc;
+	} regs;
+	// TODO set the config here, prepare the registers and defer the
+	// actual updating of the HW registers to the start() and stop()
+	// triggers
+};
+
+static void esai_regs_dump(struct dai *dai)
+{
+	/* Read every readable ESAI register and print it */
+	tracev_esai("ESAI_ECR: %08x", dai_read(dai, REG_ESAI_ECR));
+	tracev_esai("ESAI_ESR: %08x", dai_read(dai, REG_ESAI_ESR));
+	tracev_esai("ESAI_TFCR: %08x", dai_read(dai, REG_ESAI_TFCR));
+	tracev_esai("ESAI_TFSR: %08x", dai_read(dai, REG_ESAI_TFSR));
+	tracev_esai("ESAI_RFCR: %08x", dai_read(dai, REG_ESAI_RFCR));
+	tracev_esai("ESAI_RFSR: %08x", dai_read(dai, REG_ESAI_RFSR));
+	tracev_esai("ESAI_SAISR: %08x", dai_read(dai, REG_ESAI_SAISR));
+	tracev_esai("ESAI_SAICR: %08x", dai_read(dai, REG_ESAI_SAICR));
+	tracev_esai("ESAI_TCR: %08x", dai_read(dai, REG_ESAI_TCR));
+	tracev_esai("ESAI_TCCR: %08x", dai_read(dai, REG_ESAI_TCCR));
+	tracev_esai("ESAI_RCR: %08x", dai_read(dai, REG_ESAI_RCR));
+	tracev_esai("ESAI_RCCR: %08x", dai_read(dai, REG_ESAI_RCCR));
+	tracev_esai("ESAI_TSMA: %08x", dai_read(dai, REG_ESAI_TSMA));
+	tracev_esai("ESAI_TSMB: %08x", dai_read(dai, REG_ESAI_TSMB));
+	tracev_esai("ESAI_RSMA: %08x", dai_read(dai, REG_ESAI_RSMA));
+	tracev_esai("ESAI_RSMB: %08x", dai_read(dai, REG_ESAI_RSMB));
+	tracev_esai("ESAI_PRRC: %08x", dai_read(dai, REG_ESAI_PRRC));
+	tracev_esai("ESAI_PCRC: %08x", dai_read(dai, REG_ESAI_PCRC));
+}
+
 static int esai_context_store(struct dai *dai)
 {
 	struct esai_pdata *pdata = dai_get_drvdata(dai);
@@ -86,6 +131,8 @@ static int esai_context_restore(struct dai *dai)
 
 	return 0;
 }
+
+static int esai_probe(struct dai *dai);
 
 static inline int esai_set_config(struct dai *dai,
 				 struct sof_ipc_dai_config *config)

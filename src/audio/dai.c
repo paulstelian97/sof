@@ -170,8 +170,6 @@ static struct comp_dev *dai_new(struct sof_ipc_comp *comp)
 
 	comp_set_drvdata(dev, dd);
 
-	return dev;
-
 	dd->dai = dai_get(dai->type, dai->dai_index, DAI_CREAT);
 	if (!dd->dai) {
 		trace_dai_error("dai_new() error: dai_get() failed to create "
@@ -840,12 +838,14 @@ static int dai_config(struct comp_dev *dev, struct sof_ipc_dai_config *config)
 		break;
 	}
 
+	trace_dai("dai_config() dd->frame_bytes = %d", dd->frame_bytes);
 	if (!dd->frame_bytes) {
 		trace_dai_error_with_ids(dev, "dai_config() error: "
 					 "dd->frame_bytes == 0");
 		return -EINVAL;
 	}
 
+	trace_dai("dai_config() channel = %d", channel);
 	if (channel != DMA_CHAN_INVALID) {
 		if (!dd->chan)
 			/* get dma channel at first config only */
