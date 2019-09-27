@@ -283,9 +283,12 @@ static inline int esai_set_config(struct dai *dai,
 	 * 32!
 	 */
 
-	dai_update_bits(dai, REG_ESAI_TCCR, ESAI_xCCR_xDC_MASK, ESAI_xCCR_xDC(2));
-	dai_update_bits(dai, REG_ESAI_TCCR, ESAI_xCCR_xFP_MASK, ESAI_xCCR_xFP(8));
-	dai_update_bits(dai, REG_ESAI_TCCR, ESAI_xCCR_xPSR_MASK, ESAI_xCCR_xPSR_BYPASS);
+	/* Set the clock divider to divide EXTAL by 16 (DIV8 from PSR,
+	 * plus a divide by 2 which is mandatory overall)
+	 */
+	dai_update_bits(dai, REG_ESAI_TCCR, ESAI_xCCR_xDC_MASK, ESAI_xCCR_xDC(1));
+	dai_update_bits(dai, REG_ESAI_TCCR, ESAI_xCCR_xFP_MASK, ESAI_xCCR_xFP(1));
+	dai_update_bits(dai, REG_ESAI_TCCR, ESAI_xCCR_xPSR_MASK, ESAI_xCCR_xPSR_DIV8);
 
 
 	/* Remove ESAI personal reset */
