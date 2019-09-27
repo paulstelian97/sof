@@ -76,7 +76,7 @@
 #define ESAI_xFCR_xFWM_SHIFT	8
 #define ESAI_xFCR_xFWM_WIDTH	8
 #define ESAI_xFCR_xFWM_MASK	MASK(15, 8)
-#define ESAI_xFCR_xFWM(v)	SET_BITS(15, 8, (v) - 1) // Dubious, why -1?
+#define ESAI_xFCR_xFWM(v)	SET_BITS(15, 8, (v) - 1)
 #define ESAI_xFCR_xE_SHIFT	2
 #define ESAI_xFCR_TE_WIDTH	6
 #define ESAI_xFCR_RE_WIDTH	4
