@@ -101,3 +101,9 @@ SectionVendorTokens."sof_sai_tokens" {
 	SOF_TKN_INTEL_SAI_QUIRKS		"1504"
 	SOF_TKN_INTEL_SAI_TDM_PADDING_PER_SLOT  "1505"
 }
+
+SectionVendorTokens."sof_esai_tokens" {
+	SOF_TKN_IMX_ESAI_MCLK_ID		"1101"
+	SOF_TKN_IMX_ESAI_SAMPLE_BITS		"1102"
+	SOF_TKN_IMX_ESAI_FRAME_PULSE_WIDTH 	"1103"
+}
