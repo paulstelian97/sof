@@ -162,6 +162,7 @@ static int schedule_ll_domain_set(struct ll_schedule_data *sch,
 	int core = cpu_get_id();
 	int ret;
 
+	trace_ll("schedule_ll_domain_set()");
 	ret = domain_register(sch->domain, period, task, &schedule_ll_tasks_run,
 			      sch);
 	if (ret < 0) {
@@ -239,6 +240,8 @@ static void schedule_ll_task(void *data, struct task *task, uint64_t start,
 	struct task *curr_task;
 	uint32_t flags;
 
+	trace_event(TRACE_CLASS_SCHEDULE, "schedule_ll_task period=%d start=%d",
+		    (uint32_t)period, (uint32_t)start);
 	irq_local_disable(flags);
 
 	/* check if task is already scheduled */
@@ -262,10 +265,12 @@ static void schedule_ll_task(void *data, struct task *task, uint64_t start,
 	schedule_ll_task_insert(task, &sch->tasks);
 
 	/* set schedule domain */
+	trace_ll("before schedule_ll_domain_set");
 	if (schedule_ll_domain_set(sch, task, period) < 0) {
 		list_item_del(&task->list);
 		goto out;
 	}
+	trace_ll("after schedule_ll_domain_set");
 
 	task->start = sch->domain->ticks_per_ms * start / 1000;
 
@@ -275,6 +280,7 @@ static void schedule_ll_task(void *data, struct task *task, uint64_t start,
 		task->start += sch->domain->last_tick;
 
 out:
+	trace_ll("end of schedule_ll_task");
 	irq_local_enable(flags);
 }
 

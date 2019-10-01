@@ -230,6 +230,8 @@ static int dai_playback_params(struct comp_dev *dev, uint32_t period_bytes)
 	config->is_scheduling_source = comp_is_scheduling_source(dev);
 	config->period = dev->pipeline->ipc_pipe.period;
 
+	trace_dai("scheduling source? %d", comp_is_scheduling_source(dev));
+
 	trace_dai_with_ids(dev, "dai_playback_params() "
 			   "dest_dev = %d stream_id = %d "
 			   "src_width = %d dest_width = %d",

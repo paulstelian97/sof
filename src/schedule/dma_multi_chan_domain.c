@@ -99,23 +99,32 @@ static int dma_multi_chan_domain_register(struct ll_schedule_domain *domain,
 	int i;
 	int j;
 
+	trace_event(TRACE_CLASS_DMA, "dma_multi_chan_domain_register");
 	for (i = 0; i < dma_domain->num_dma; ++i) {
 		for (j = 0; j < dmas[i].plat_data.channels; ++j) {
 			/* channel not set as scheduling source */
-			if (!dma_is_scheduling_source(&dmas[i].chan[j]))
+			if (!dma_is_scheduling_source(&dmas[i].chan[j])) {
+				trace_error(TRACE_CLASS_DMA, "dma_multi_chan_domain_register chan %d NOT SCHEDULING SOURCE", j);
 				continue;
+			}
 
 			/* channel not running */
-			if (dmas[i].chan[j].status != COMP_STATE_ACTIVE)
+			if (dmas[i].chan[j].status != COMP_STATE_ACTIVE) {
+				trace_error(TRACE_CLASS_DMA, "CHANNEL NOT RUNNING");
 				continue;
+			}
 
 			/* channel owned by different core */
-			if (core != dmas[i].chan[j].core)
+			if (core != dmas[i].chan[j].core) {
+				trace_error(TRACE_CLASS_DMA, "CHANNEL WRONG CORE");
 				continue;
+			}
 
 			/* channel has been already running */
-			if (dma_domain->channel_mask[i][core] & BIT(j))
+			if (dma_domain->channel_mask[i][core] & BIT(j)) {
+				trace_error(TRACE_CLASS_DMA, "CHANNEL ALREADY RUNNING");
 				continue;
+			}
 
 			dma_interrupt(&dmas[i].chan[j], DMA_IRQ_CLEAR);
 
@@ -144,6 +153,7 @@ static int dma_multi_chan_domain_register(struct ll_schedule_domain *domain,
 			dma_domain->data[i][j].task = task;
 			dma_domain->channel_mask[i][core] |= BIT(j);
 
+			trace_event(TRACE_CLASS_DMA, "END OF FUNCTION");
 			return 0;
 		}
 	}
