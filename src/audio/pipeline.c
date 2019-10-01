@@ -944,8 +944,10 @@ static int pipeline_xrun_recover(struct pipeline *p)
 /* notify pipeline that this component requires buffers emptied/filled */
 void pipeline_schedule_copy(struct pipeline *p, uint64_t start)
 {
+	trace_pipe("pipeline_schedule_copy()");
 	if (p->sched_comp->state == COMP_STATE_ACTIVE)
 		schedule_task(p->pipe_task, start, p->ipc_pipe.period);
+	trace_pipe("PIPE_SCHEDULE DONE");
 }
 
 void pipeline_schedule_cancel(struct pipeline *p)
@@ -958,7 +960,7 @@ static enum task_state pipeline_task(void *arg)
 	struct pipeline *p = arg;
 	int err;
 
-	tracev_pipe_with_ids(p, "pipeline_task()");
+	trace_pipe_with_ids(p, "pipeline_task()");
 
 	/* are we in xrun ? */
 	if (p->xrun_bytes) {

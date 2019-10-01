@@ -553,6 +553,7 @@ static int host_params(struct comp_dev *dev)
 	config->is_scheduling_source = comp_is_scheduling_source(dev);
 	config->period = dev->pipeline->ipc_pipe.period;
 
+	trace_host("host is scheduling source? %d", comp_is_scheduling_source(dev));
 	tracev_host("host_params() about to call host_elements_reset");
 	host_elements_reset(dev);
 	tracev_host("host_params() elements reset ok");

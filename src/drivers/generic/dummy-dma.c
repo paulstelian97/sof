@@ -224,6 +224,7 @@ static struct dma_chan_data *dummy_dma_channel_get(struct dma *dma,
 	uint32_t flags;
 	int i;
 
+	trace_dummydma("dummydma: dma_channel_get(%d)", req_chan);
 	spin_lock_irq(dma->lock, flags);
 	for (i = 0; i < dma->plat_data.channels; i++) {
 		/* use channel if it's free */
@@ -274,6 +275,9 @@ static void dummy_dma_channel_put(struct dma_chan_data *channel)
 {
 	uint32_t flags;
 
+	if (!channel)
+		trace_dummydma_error("dummydma: dma_channel_put(NULL)");
+	trace_dummydma("dummydma: dma_channel_put(%d)", channel->index);
 	spin_lock_irq(channel->dma->lock, flags);
 	dummy_dma_channel_put_unlocked(channel);
 	spin_unlock_irq(channel->dma->lock, flags);
