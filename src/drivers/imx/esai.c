@@ -224,7 +224,8 @@ static inline int esai_set_config(struct dai *dai,
 	xccr |= ESAI_xCCR_xDC(2);
 
 	/* Word size -- TODO compute correct one */
-	xcr |= ESAI_xCR_xSWS(32, 16) | ESAI_xCR_PADC;
+	xcr |= ESAI_xCR_xSWS(32, 24) | ESAI_xCR_PADC;
+	trace_esai_error("Set xcr to xSWS(32, 24)");
 
 	/* Remove "RESET" flag */
 	dai_update_bits(dai, REG_ESAI_ECR, ESAI_ECR_ERST, 0);
@@ -276,7 +277,7 @@ static inline int esai_set_config(struct dai *dai,
 
 	dai_update_bits(dai, REG_ESAI_TFCR,
 				ESAI_xFCR_xFR_MASK | ESAI_xFCR_xWA_MASK | ESAI_xFCR_xFWM_MASK | ESAI_xFCR_TE_MASK | ESAI_xFCR_TIEN,
-				ESAI_xFCR_xWA(16) | ESAI_xFCR_xFWM(32) | ESAI_xFCR_TE(1) | ESAI_xFCR_TIEN);
+				ESAI_xFCR_xWA(24) | ESAI_xFCR_xFWM(96) | ESAI_xFCR_TE(1) | ESAI_xFCR_TIEN);
 	/* TODO */
 	/* ESAI_xFCR_xWA(bits) instead of 16 ^^^^ */
 	/* ESAI_xFCR_xFWM(slots) -- compute slots instead of hardcoding

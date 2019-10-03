@@ -1007,7 +1007,7 @@ static enum task_state pipeline_task(void *arg)
 	struct pipeline *p = arg;
 	int err;
 
-	trace_pipe_with_ids(p, "pipeline_task()");
+	//trace_pipe_with_ids(p, "pipeline_task()");
 
 	/* are we in xrun ? */
 	if (p->xrun_bytes) {

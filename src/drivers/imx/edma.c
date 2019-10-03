@@ -192,12 +192,21 @@ static int edma_stop(struct dma_chan_data *channel)
 	return 0;
 }
 
+uint32_t copied_bytes;
+
 static int edma_copy(struct dma_chan_data *channel, int bytes, uint32_t flags)
 {
 	struct dma_cb_data next = { .elem.size = bytes };
 
 	if (channel->cb && channel->cb_type & DMA_CB_TYPE_COPY)
 		channel->cb(channel->cb_data, DMA_CB_TYPE_COPY, &next);
+
+	copied_bytes += bytes;
+
+	if (copied_bytes > 48000 * 2 * 2 * 2) {
+		copied_bytes -= 48000 * 2 * 2 * 2;
+		trace_edma("edma_copy() copied bytes %d", 48000 * 2 * 2 * 2);
+	}
 	return 0;
 }
 
