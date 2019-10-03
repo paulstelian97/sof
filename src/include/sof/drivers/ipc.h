@@ -42,7 +42,7 @@ struct sof_ipc_stream_posn;
 #define trace_ipc_error(format, ...) \
 	trace_error(TRACE_CLASS_IPC, format, ##__VA_ARGS__)
 
-#define MSG_QUEUE_SIZE		12
+#define MSG_QUEUE_SIZE		36
 
 #define COMP_TYPE_COMPONENT	1
 #define COMP_TYPE_BUFFER	2
