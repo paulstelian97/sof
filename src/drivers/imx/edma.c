@@ -7,12 +7,142 @@
 
 #include <sof/audio/component.h>
 #include <sof/drivers/edma.h>
-#include <sof/drivers/timer.h>
 #include <sof/lib/alloc.h>
 #include <sof/lib/dma.h>
 #include <sof/lib/io.h>
 #include <sof/platform.h>
 #include <stdint.h>
+
+/* Hardware TCD structure. Alignment to 32 bytes is mandated by the hardware */
+struct edma_hw_tcd {
+	uint32_t saddr;
+	uint16_t soff;
+	uint16_t attr;
+	uint32_t nbytes;
+	uint32_t slast;
+	uint32_t daddr;
+	uint16_t doff;
+	uint16_t citer;
+	uint32_t dlast_sga;
+	uint16_t csr;
+	uint16_t biter;
+} __aligned(EDMA_TCD_ALIGNMENT);
+
+/* Channel-specific configuration data that isn't stored in the HW registers */
+struct edma_ch_data {
+	struct edma_hw_tcd tcd_cache;
+	struct edma_hw_tcd *tcds;
+	void *tcds_alloc;
+	int tcds_count;
+};
+
+static inline void edma_dump_tcd_offline(struct edma_hw_tcd *tcd)
+{
+	tracev_edma("EDMA_SADDR: 0x%08x", tcd->saddr);
+	tracev_edma("EDMA_SOFF: 0x%04x", tcd->soff);
+	tracev_edma("EDMA_ATTR: 0x%04x", tcd->attr);
+	tracev_edma("EDMA_NBYTES: 0x%08x", tcd->nbytes);
+	tracev_edma("EDMA_SLAST: 0x%08x", tcd->slast);
+	tracev_edma("EDMA_DADDR: 0x%08x", tcd->daddr);
+	tracev_edma("EDMA_DOFF: 0x%04x", tcd->doff);
+	tracev_edma("EDMA_CITER: 0x%04x", tcd->citer);
+	tracev_edma("EDMA_DLAST_SGA: 0x%08x", tcd->dlast_sga);
+	tracev_edma("EDMA_CSR: 0x%04x", tcd->csr);
+	tracev_edma("EDMA_BITER: 0x%04x", tcd->biter);
+}
+
+static inline void edma_dump_tcd(struct dma_chan_data *channel)
+{
+	tracev_edma("EDMA_CH_CSR: 0x%08x",
+		    edma_chan_read(channel, EDMA_CH_CSR));
+	tracev_edma("EDMA_CH_ES: 0x%08x",
+		    edma_chan_read(channel, EDMA_CH_ES));
+	tracev_edma("EDMA_CH_INT: 0x%08x",
+		    edma_chan_read(channel, EDMA_CH_INT));
+	tracev_edma("EDMA_CH_SBR: 0x%08x",
+		    edma_chan_read(channel, EDMA_CH_SBR));
+	tracev_edma("EDMA_CH_PRI: 0x%08x",
+		    edma_chan_read(channel, EDMA_CH_PRI));
+	tracev_edma("EDMA_TCD_SADDR: 0x%08x",
+		    edma_chan_read(channel, EDMA_TCD_SADDR));
+	tracev_edma("EDMA_TCD_SOFF: 0x%04x",
+		    edma_chan_read16(channel, EDMA_TCD_SOFF));
+	tracev_edma("EDMA_TCD_ATTR: 0x%04x",
+		    edma_chan_read16(channel, EDMA_TCD_ATTR));
+	tracev_edma("EDMA_TCD_NBYTES: 0x%08x",
+		    edma_chan_read(channel, EDMA_TCD_NBYTES));
+	tracev_edma("EDMA_TCD_SLAST: 0x%08x",
+		    edma_chan_read(channel, EDMA_TCD_SLAST));
+	tracev_edma("EDMA_TCD_DADDR: 0x%08x",
+		    edma_chan_read(channel, EDMA_TCD_DADDR));
+	tracev_edma("EDMA_TCD_DOFF: 0x%04x",
+		    edma_chan_read16(channel, EDMA_TCD_DOFF));
+	tracev_edma("EDMA_TCD_CITER: 0x%04x",
+		    edma_chan_read16(channel, EDMA_TCD_CITER));
+	tracev_edma("EDMA_TCD_DLAST_SGA: 0x%08x",
+		    edma_chan_read(channel, EDMA_TCD_DLAST_SGA));
+	tracev_edma("EDMA_TCD_CSR: 0x%04x",
+		    edma_chan_read16(channel, EDMA_TCD_CSR));
+	tracev_edma("EDMA_TCD_BITER: 0x%04x",
+		    edma_chan_read16(channel, EDMA_TCD_BITER));
+
+	if (dma_chan_reg_read16(channel, EDMA_TCD_CSR) & EDMA_TCD_CSR_ESG) {
+		tracev_edma("EDMA: Dumping ESG next value");
+		edma_dump_tcd_offline((struct edma_hw_tcd *)
+				      dma_chan_reg_read(channel,
+							EDMA_TCD_DLAST_SGA));
+	}
+}
+
+static void edma_channel_load_tcd(struct dma_chan_data *channel)
+{
+	struct edma_ch_data *ch;
+
+	if (!channel)
+		return;
+	ch = dma_chan_get_data(channel);
+	if (!ch)
+		return;
+	dma_chan_reg_write16(channel, EDMA_TCD_CSR, 0); /* Stop the channel */
+
+	dma_chan_reg_write(channel, EDMA_TCD_SADDR, ch->tcd_cache.saddr);
+	dma_chan_reg_write16(channel, EDMA_TCD_SOFF, ch->tcd_cache.soff);
+	dma_chan_reg_write16(channel, EDMA_TCD_ATTR, ch->tcd_cache.attr);
+	dma_chan_reg_write(channel, EDMA_TCD_NBYTES, ch->tcd_cache.nbytes);
+	dma_chan_reg_write(channel, EDMA_TCD_SLAST, ch->tcd_cache.slast);
+	dma_chan_reg_write(channel, EDMA_TCD_DADDR, ch->tcd_cache.daddr);
+	dma_chan_reg_write16(channel, EDMA_TCD_DOFF, ch->tcd_cache.doff);
+	dma_chan_reg_write16(channel, EDMA_TCD_CITER, ch->tcd_cache.citer);
+	dma_chan_reg_write(channel, EDMA_TCD_DLAST_SGA,
+			   ch->tcd_cache.dlast_sga);
+	dma_chan_reg_write16(channel, EDMA_TCD_BITER, ch->tcd_cache.biter);
+	/* Write it the last, this may trigger some action */
+	dma_chan_reg_write16(channel, EDMA_TCD_CSR, ch->tcd_cache.csr);
+}
+
+static void edma_channel_save_tcd(struct dma_chan_data *channel)
+{
+	struct edma_ch_data *ch;
+
+	if (!channel)
+		return;
+	ch = dma_chan_get_data(channel);
+	if (!ch)
+		return;
+
+	ch->tcd_cache.saddr = dma_chan_reg_read(channel, EDMA_TCD_SADDR);
+	ch->tcd_cache.soff = dma_chan_reg_read16(channel, EDMA_TCD_SOFF);
+	ch->tcd_cache.attr = dma_chan_reg_read16(channel, EDMA_TCD_ATTR);
+	ch->tcd_cache.nbytes = dma_chan_reg_read(channel, EDMA_TCD_NBYTES);
+	ch->tcd_cache.slast = dma_chan_reg_read(channel, EDMA_TCD_SLAST);
+	ch->tcd_cache.daddr = dma_chan_reg_read(channel, EDMA_TCD_DADDR);
+	ch->tcd_cache.doff = dma_chan_reg_read16(channel, EDMA_TCD_DOFF);
+	ch->tcd_cache.citer = dma_chan_reg_read16(channel, EDMA_TCD_CITER);
+	ch->tcd_cache.dlast_sga = dma_chan_reg_read(channel,
+						    EDMA_TCD_DLAST_SGA);
+	ch->tcd_cache.csr = dma_chan_reg_read16(channel, EDMA_TCD_CSR);
+	ch->tcd_cache.biter = dma_chan_reg_read16(channel, EDMA_TCD_BITER);
+}
 
 static int edma_compute_attr(int src_width, int dest_width)
 {
@@ -77,7 +207,9 @@ static int edma_compute_attr(int src_width, int dest_width)
 static struct dma_chan_data *edma_channel_get(struct dma *dma,
 					      unsigned int req_chan)
 {
+	struct dma_chan_data *chans = dma_get_drvdata(dma);
 	struct dma_chan_data *channel;
+	struct edma_ch_data *ch;
 
 	tracev_edma("EDMA: channel_get(%d)", req_chan);
 	if (req_chan >= dma->plat_data.channels) {
@@ -85,12 +217,24 @@ static struct dma_chan_data *edma_channel_get(struct dma *dma,
 		return NULL;
 	}
 
-	channel = &dma->chan[req_chan];
+	channel = &chans[req_chan];
 	if (channel->status != COMP_STATE_INIT) {
 		trace_edma_error("EDMA: Cannot reuse channel %d", req_chan);
 		return NULL;
 	}
 
+	ch = dma_chan_get_data(channel);
+	if (!ch) {
+		/* Attempt allocating the channel data */
+		ch = rzalloc(RZONE_RUNTIME | RZONE_FLAG_UNCACHED,
+			     SOF_MEM_CAPS_RAM, sizeof(*ch));
+		if (!ch) {
+			trace_edma_error("EDMA: Out of memory allocating channel private data");
+			trace_edma_error("EDMA: Channel %d", req_chan);
+			return NULL;
+		}
+		dma_chan_set_data(channel, ch);
+	}
 	channel->status = COMP_STATE_READY;
 	return channel;
 }
@@ -98,14 +242,23 @@ static struct dma_chan_data *edma_channel_get(struct dma *dma,
 /* channel must not be running when this is called */
 static void edma_channel_put(struct dma_chan_data *channel)
 {
+	struct edma_ch_data *ch = dma_chan_get_data(channel);
+
+	if (!ch) {
+		tracev_edma("EDMA: channel_put(%d) [DUMMY]", channel->index);
+		return;
+	}
 	/* Assuming channel is stopped, we thus don't need hardware to
 	 * do anything right now
 	 */
 	tracev_edma("EDMA: channel_put(%d)", channel->index);
 	/* Also release extra memory used for scatter-gather */
 	channel->status = COMP_STATE_INIT;
+	if (ch->tcds_alloc)
+		rfree(ch->tcds_alloc);
 
 	dma_chan_set_data(channel, NULL);
+	rfree(ch);
 }
 
 static int edma_start(struct dma_chan_data *channel)
@@ -144,6 +297,9 @@ static int edma_release(struct dma_chan_data *channel)
 		return -EINVAL;
 	}
 	channel->status = COMP_STATE_ACTIVE;
+	// Reenable HW requests
+//	edma_chan_update_bits(channel, EDMA_CH_CSR,
+//			      EDMA_CH_CSR_ERQ_EARQ, EDMA_CH_CSR_ERQ_EARQ);
 	return 0;
 }
 
@@ -268,71 +424,204 @@ static int edma_setup_tcd(struct dma_chan_data *channel, uint16_t soff,
 			  struct dma_sg_elem_array *sgelems, int src_width,
 			  int dest_width)
 {
-	int rc;
+	struct edma_ch_data *ch = dma_chan_get_data(channel);
+	int rc, i;
 	uint32_t sbase, dbase, total_size, elem_count, elem_size;
+	struct edma_hw_tcd *tcd;
+	struct dma_sg_elem *elem;
 
-	assert(!sg);
-	assert(cyclic);
-	/* Not scatter-gather, just create a regular TCD. Don't
-	 * allocate anything
-	 */
+	// TODO
+	/* Set up the normal TCD and, for SG, also set up the SG TCDs */
+	if (!sg) {
+		/* Not scatter-gather, just create a regular TCD. Don't
+		 * allocate anything
+		 */
 
-	/* The only supported non-SG configurations are:
-	 * -> 2 buffers
-	 * -> The buffers must be of equal size
-	 * -> The buffers must be contiguous
-	 * -> The first buffer should be of the lower address
-	 */
+		/* The only supported non-SG configurations are:
+		 * -> 2 buffers
+		 * -> The buffers must be of equal size
+		 * -> The buffers must be contiguous
+		 * -> The first buffer should be of the lower address
+		 */
 
-	/* TODO Support more advanced non-SG configurations */
+		rc = edma_validate_nonsg_config(sgelems, soff, doff);
+		if (rc < 0)
+			return rc;
 
-	rc = edma_validate_nonsg_config(sgelems, soff, doff);
-	if (rc < 0)
-		return rc;
+		/* We should work directly with the TCD cache */
+		sbase = sgelems->elems[0].src;
+		dbase = sgelems->elems[0].dest;
+		total_size = 2 * sgelems->elems[0].size;
+		/* TODO more flexible elem_count and elem_size
+		 * calculations
+		 */
+		elem_count = 2;
+		elem_size = total_size / elem_count;
 
-	/* We should work directly with the TCD cache */
-	sbase = sgelems->elems[0].src;
-	dbase = sgelems->elems[0].dest;
-	total_size = 2 * sgelems->elems[0].size;
-	/* TODO more flexible elem_count and elem_size
-	 * calculations
-	 */
-	elem_count = 2;
-	elem_size = total_size / elem_count;
+		ch->tcd_cache.saddr = sbase;
+		ch->tcd_cache.soff = soff;
+		rc = edma_compute_attr(src_width, dest_width);
+		if (rc < 0)
+			return rc;
+		ch->tcd_cache.attr = rc;
+		ch->tcd_cache.nbytes = elem_size;
+		ch->tcd_cache.slast = -total_size * signum(soff);
+		ch->tcd_cache.daddr = dbase;
+		ch->tcd_cache.doff = doff;
+		ch->tcd_cache.citer = elem_count;
+		ch->tcd_cache.dlast_sga = -total_size * signum(doff);
+		ch->tcd_cache.csr = irqoff ? 0 : EDMA_TCD_CSR_INTMAJOR |
+			EDMA_TCD_CSR_INTHALF;
+		ch->tcd_cache.biter = elem_count;
 
-	rc = edma_compute_attr(src_width, dest_width);
-	if (rc < 0)
-		return rc;
+		goto load_cached;
+		/* The below two lines are unreachable */
+		trace_edma_error("Unable to set up non-SG");
+		return -EINVAL;
+	}
+	/* Scatter-gather, we need to allocate additional TCDs */
+	// TODO reenable support (currently not supported)
+	return -EINVAL;
+	ch->tcds_count = sgelems->count;
+	/* Since we don't (yet) have aligned allocators, we will do this */
+	// HACK
+	ch->tcds_alloc = rzalloc(RZONE_RUNTIME | RZONE_FLAG_UNCACHED,
+				 SOF_MEM_CAPS_RAM,
+				 (sgelems->count + 1) *
+				 sizeof(struct edma_hw_tcd));
 
-	/* Configure the in-hardware TCD */
-	dma_chan_reg_write(channel, EDMA_TCD_SADDR, sbase);
-	dma_chan_reg_write16(channel, EDMA_TCD_SOFF, soff);
-	dma_chan_reg_write16(channel, EDMA_TCD_ATTR, rc);
-	dma_chan_reg_write(channel, EDMA_TCD_NBYTES, elem_size);
-	dma_chan_reg_write(channel, EDMA_TCD_SLAST, -total_size * signum(soff));
-	dma_chan_reg_write(channel, EDMA_TCD_DADDR, dbase);
-	dma_chan_reg_write16(channel, EDMA_TCD_DOFF, doff);
-	dma_chan_reg_write16(channel, EDMA_TCD_CITER, elem_count);
-	dma_chan_reg_write(channel, EDMA_TCD_DLAST_SGA,
-			   -total_size * signum(doff));
-	dma_chan_reg_write16(channel, EDMA_TCD_BITER, elem_count);
-	/* TODO This may be interesting for the interrupt() callback; however
-	 * since in that case other bits may be nonzero it may be nontrivial
-	 * to update
-	 */
-	dma_chan_reg_write16(channel, EDMA_TCD_CSR,
-			     irqoff ? 0 : EDMA_TCD_CSR_INTMAJOR |
-			     EDMA_TCD_CSR_INTHALF);
+	if (!ch->tcds_alloc) {
+		ch->tcds_count = 0;
+		trace_edma_error("Unable to allocate SG TCDs");
+		return -ENOMEM;
+	}
+
+	ch->tcds = (struct edma_hw_tcd *)
+		ALIGN_UP((uintptr_t)ch->tcds_alloc, EDMA_TCD_ALIGNMENT);
+
+	/* Populate each tcd */
+	for (i = 0; i < ch->tcds_count; i++) {
+		tcd = &ch->tcds[i];
+		elem = &sgelems->elems[i];
+
+		tcd->saddr = elem->src;
+		tcd->soff = soff;
+		rc = edma_compute_attr(src_width, dest_width);
+		if (rc < 0)
+			return rc;
+		tcd->attr = rc;
+		tcd->nbytes = elem->size;
+		tcd->slast = 0; /* Not used */
+		tcd->daddr = elem->dest;
+		tcd->doff = doff;
+		tcd->citer = 1;
+		tcd->dlast_sga = (uint32_t)&ch->tcds[i + 1];
+		tcd->csr = EDMA_TCD_CSR_INTMAJOR | EDMA_TCD_CSR_ESG;
+		if (irqoff)
+			tcd->csr = EDMA_TCD_CSR_ESG;
+		tcd->biter = 1;
+	}
+
+	if (ch->tcds_count) {
+		ch->tcds[ch->tcds_count - 1].dlast_sga =
+			(uint32_t)(cyclic ? &ch->tcds[0] : 0);
+		if (!cyclic) {
+			ch->tcds[ch->tcds_count - 1].csr
+				&= ~EDMA_TCD_CSR_ESG;
+			ch->tcds[ch->tcds_count - 1].csr
+				|= EDMA_TCD_CSR_DREQ;
+		}
+	}
+
+	/* We will also copy the first TCD into the cache, for later loading */
+	ch->tcd_cache = ch->tcds[0];
+
+load_cached:
+	/* Load the HW TCD */
+	edma_channel_load_tcd(channel);
 
 	channel->status = COMP_STATE_PREPARE;
 	return 0;
+}
+
+static void edma_chan_irq(struct dma_chan_data *channel)
+{
+	struct dma_cb_data next = {
+		.status = DMA_CB_STATUS_RELOAD,
+	};
+
+	if (!channel->cb)
+		return;
+	if (!(channel->cb_type & DMA_CB_TYPE_IRQ))
+		return;
+
+	channel->cb(channel->cb_data, DMA_CB_TYPE_IRQ, &next);
+
+	/* We will ignore status as it is currently
+	 * never set
+	 */
+	/* TODO consider changes in next.status */
+	/* By default we let the TCDs just continue
+	 * reloading
+	 */
+}
+
+static void edma_irq(void *arg)
+{
+	struct dma_chan_data *channel = (struct dma_chan_data *)arg;
+	uint32_t err_status;
+	int ch_int;
+
+	/* Check the error status for this channel */
+	err_status = dma_chan_reg_read(channel, EDMA_CH_ES);
+	if (err_status & EDMA_CH_ES_ERR) {
+		/* Clear the error status bit */
+		dma_chan_reg_update_bits(channel, EDMA_CH_ES, EDMA_CH_ES_ERR,
+					 EDMA_CH_ES_ERR);
+		/* Print the detected errors */
+		trace_edma_error("EDMA: Error detected on channel %d. Printing bits:",
+				 channel->index);
+		if (err_status & EDMA_CH_ES_SAE)
+			trace_edma_error("EDMA: SAE");
+		if (err_status & EDMA_CH_ES_SOE)
+			trace_edma_error("EDMA: SOE");
+		if (err_status & EDMA_CH_ES_DAE)
+			trace_edma_error("EDMA: DAE");
+		if (err_status & EDMA_CH_ES_DOE)
+			trace_edma_error("EDMA: DOE");
+		if (err_status & EDMA_CH_ES_NCE)
+			trace_edma_error("EDMA: NCE");
+		if (err_status & EDMA_CH_ES_SGE)
+			trace_edma_error("EDMA: SGE");
+		if (err_status & EDMA_CH_ES_SBE)
+			trace_edma_error("EDMA: SBE");
+		if (err_status & EDMA_CH_ES_DBE)
+			trace_edma_error("EDMA: DBE");
+	}
+
+	/* Check if the interrupt is real */
+	ch_int = dma_chan_reg_read(channel, EDMA_CH_INT);
+	if (!ch_int) {
+		/* Cannot do below trace, shared interrupts will be able to
+		 * cause storms of the below message -- every legitimate
+		 * interrupt would get the below message too.
+		 */
+		/* trace_edma_error("EDMA spurious interrupt"); */
+		return;
+	}
+
+	/* We have an interrupt, we should handle it... */
+	edma_chan_irq(channel);
+
+	/* Clear the interrupt as required by the HW specs */
+	dma_chan_reg_write(channel, EDMA_CH_INT, 1);
 }
 
 /* set the DMA channel configuration, source/target address, buffer sizes */
 static int edma_set_config(struct dma_chan_data *channel,
 			   struct dma_sg_config *config)
 {
-	int handshake, irq, i;
+	int handshake, irq, rc, i;
 	uint16_t soff = 0;
 	uint16_t doff = 0;
 
@@ -358,25 +647,38 @@ static int edma_set_config(struct dma_chan_data *channel,
 	tracev_edma("EDMA: src dev %d dest dev %d", config->src_dev,
 		    config->dest_dev);
 	tracev_edma("EDMA: cyclic = %d", config->cyclic);
-	if (!config->cyclic) {
-		trace_edma_error("EDMA: Only cyclic configurations are supported!");
-		return -EINVAL;
-	}
-	if (config->scatter) {
-		trace_edma_error("EDMA: scatter enabled, that is not supported for now!");
-		return -EINVAL;
-	}
+	if (config->scatter)
+		tracev_edma("EDMA: scatter enabled");
 	else
 		tracev_edma("EDMA: scatter disabled");
-	/* TODO Is it still interesting at this point? */
 	if (config->irq_disabled) {
 		tracev_edma("EDMA: IRQ disabled");
 	} else {
 		tracev_edma("EDMA: Registering IRQ");
 
 		irq = EDMA_HS_GET_IRQ(handshake);
-		/* TODO figure out how to use this IRQ */
-		(void)irq;
+		trace_edma_error("EDMA registering irq %d", irq);
+		rc = interrupt_register(irq, IRQ_AUTO_UNMASK, &edma_irq,
+					channel);
+
+		if (rc == -EEXIST) {
+			/* Ignore error, it's also our handler */
+			rc = 0;
+		}
+
+		if (rc < 0) {
+			trace_edma_error("Unable to register IRQ, bailing (rc = %d)",
+					 rc);
+			return rc;
+		}
+
+		interrupt_enable(irq, channel);
+
+		/* TODO: Figure out when to disable and perhaps
+		 * unregister the interrupts
+		 * (note: future upstream PR may make this issue go
+		 * away)
+		 */
 	}
 	tracev_edma("EDMA: %d elements", config->elem_array.count);
 	for (i = 0; i < config->elem_array.count; i++)
@@ -393,14 +695,25 @@ static int edma_set_config(struct dma_chan_data *channel,
 /* restore DMA context after leaving D3 */
 static int edma_pm_context_restore(struct dma *dma)
 {
-	/* External to the DSP, won't lose power */
+	struct dma_chan_data *chans = dma_get_drvdata(dma);
+	int channel;
+
+	tracev_edma("EDMA: resuming... We need to restore from the cache");
+	for (channel = 0; channel < dma->plat_data.channels; channel++)
+		edma_channel_load_tcd(&chans[channel]);
 	return 0;
 }
 
 /* store DMA context after leaving D3 */
 static int edma_pm_context_store(struct dma *dma)
 {
-	/* External to the DSP, won't lose power */
+	struct dma_chan_data *chans = dma_get_drvdata(dma);
+	int channel;
+
+	/* Save all channels' registers */
+	for (channel = 0; channel < dma->plat_data.channels; channel++)
+		edma_channel_save_tcd(&chans[channel]);
+
 	return 0;
 }
 
@@ -424,10 +737,9 @@ static int edma_probe(struct dma *dma)
 	}
 	trace_edma("EDMA: probe");
 
-	dma->chan = rzalloc(RZONE_RUNTIME, SOF_MEM_CAPS_RAM,
-			    dma->plat_data.channels *
-			    sizeof(struct dma_chan_data));
-	if (!dma->chan) {
+	chans = rzalloc(RZONE_RUNTIME, SOF_MEM_CAPS_RAM,
+			dma->plat_data.channels * sizeof(struct dma_chan_data));
+	if (!chans) {
 		trace_edma_error("EDMA: Probe failure, unable to allocate channel descriptors");
 		return -ENOMEM;
 	}
@@ -440,33 +752,44 @@ static int edma_probe(struct dma *dma)
 
 static int edma_remove(struct dma *dma)
 {
+	struct dma_chan_data *chans = dma_get_drvdata(dma);
+	struct dma_chan_data *chan;
+	struct edma_chan_data *ch;
 	int channel;
 
 	trace_edma("EDMA: remove (I'd be surprised!)");
-	if (!dma->chan) {
+	if (!chans) {
 		trace_edma_error("EDMA: remove called without probe, it's a no-op");
 		return 0;
 	}
 	for (channel = 0; channel < dma->plat_data.channels; channel++) {
 		/* Disable HW requests for this channel */
-		dma_chan_reg_write(&dma->chan[channel], EDMA_CH_CSR, 0);
+		dma_chan_reg_write(&chans[channel], EDMA_CH_CSR, 0);
 		/* Remove TCD from channel */
-		dma_chan_reg_write16(&dma->chan[channel], EDMA_TCD_CSR, 0);
+		dma_chan_reg_write16(&chans[channel], EDMA_TCD_CSR, 0);
+		/* Free up channel private data */
+		chan = &chans[channel];
+		ch = dma_chan_get_data(chan);
+		dma_chan_set_data(&chans[channel], NULL);
+		/* No need to NULL-check since rfree does it itself */
+		rfree(ch);
 	}
-	rfree(dma->chan);
-	dma->chan = NULL;
-
+	rfree(chans);
+	dma_set_drvdata(dma, NULL);
 	return 0;
 }
 
 static int edma_interrupt(struct dma_chan_data *channel, enum dma_irq_cmd cmd)
 {
 	/* TODO we need to actually implement interrupt logic here now */
+//	trace_edma_error("edma_interrupt(channel=%d)", channel->index);
 	switch (cmd) {
 	case DMA_IRQ_STATUS_GET:
+//		trace_edma("DMA_IRQ_STATUS_GET");
 		return dma_chan_reg_read(channel, EDMA_CH_INT);
 	case DMA_IRQ_CLEAR:
 		dma_chan_reg_write(channel, EDMA_CH_INT, 1);
+//		trace_edma("DMA_IRQ_CLEAR (OK)");
 		return 0;
 	case DMA_IRQ_MASK:
 		trace_edma("DMA_IRQ_MASK");
@@ -475,8 +798,11 @@ static int edma_interrupt(struct dma_chan_data *channel, enum dma_irq_cmd cmd)
 		trace_edma("DMA_IRQ_UNMASK");
 		return 0;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		break;
 	}
+
+	return ret;
 }
 
 static int edma_get_attribute(struct dma *dma, uint32_t type, uint32_t *value)
@@ -494,17 +820,27 @@ static int edma_get_attribute(struct dma *dma, uint32_t type, uint32_t *value)
 	default:
 		return -ENOENT; /* Attribute not found */
 	}
+	return 0;
 }
 
 static int edma_get_data_size(struct dma_chan_data *channel,
 			      uint32_t *avail, uint32_t *free)
 {
+	// TODO get a correct data size
+	/* Since we cannot guess how much data actually is in the
+	 * hardware FIFOs, we should return how much we can transfer
+	 * every interrupt. The copy() function will report to the
+	 * registered callback when this amount of data was copied.
+	 *
+	 * The current hardcoded size is:
+	 * 1ms * 2ch * 48 samples/ms/ch * 4 bytes per sample
+	 */
 	switch (channel->direction) {
 	case SOF_IPC_STREAM_PLAYBACK:
-		*free = dma_chan_reg_read(channel, EDMA_TCD_NBYTES);
+		*free = 384;
 		break;
 	case SOF_IPC_STREAM_CAPTURE:
-		*avail = dma_chan_reg_read(channel, EDMA_TCD_NBYTES);
+		*avail = 384;
 		break;
 	default:
 		trace_edma_error("edma_get_data_size() unsupported direction %d",
