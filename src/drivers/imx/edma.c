@@ -170,7 +170,7 @@ static int edma_pause(struct dma_chan_data *channel)
 
 static int edma_stop(struct dma_chan_data *channel)
 {
-	trace_edma("EDMA: stop(%d)", channel->index);
+	tracev_edma("EDMA: stop(%d)", channel->index);
 	/* Validate state */
 	// TODO: Should we?
 	switch (channel->status) {
@@ -342,7 +342,9 @@ static int edma_set_config(struct dma_chan_data *channel,
 	(void)handshake;
 	(void)irq;
 
-	trace_edma("EDMA: set config");
+	tracev_edma("EDMA: set config");
+	tracev_edma("EDMA: source width %d dest width %d burst elems %d",
+		    config->src_width, config->dest_width, config->burst_elems);
 
 	channel->is_scheduling_source = config->is_scheduling_source;
 
@@ -362,6 +364,10 @@ static int edma_set_config(struct dma_chan_data *channel,
 		return -EINVAL;
 	}
 
+	tracev_edma("EDMA: SOFF = %d DOFF = %d", soff, doff);
+	tracev_edma("EDMA: src dev %d dest dev %d", config->src_dev,
+		    config->dest_dev);
+	tracev_edma("EDMA: cyclic = %d", config->cyclic);
 	if (!config->cyclic) {
 		trace_edma_error("EDMA: Only cyclic configurations are supported!");
 		return -EINVAL;
@@ -371,6 +377,17 @@ static int edma_set_config(struct dma_chan_data *channel,
 		return -EINVAL;
 	}
 
+	/* IRQ is actually handled by SOF itself so I don't need to
+	 * consider it myself.
+	 */
+	tracev_edma("EDMA: irq_disabled = %d", config->irq_disabled);
+
+	tracev_edma("EDMA: %d elements", config->elem_array.count);
+	for (i = 0; i < config->elem_array.count; i++)
+		tracev_edma("EDMA: elem %d src 0x%08x -> dst 0x%08x size 0x%x bytes",
+			    i, config->elem_array.elems[i].src,
+			    config->elem_array.elems[i].dest,
+			    config->elem_array.elems[i].size);
 	return edma_setup_tcd(channel, soff, doff, config->cyclic,
 			      config->scatter, config->irq_disabled,
 			      &config->elem_array, config->src_width,
