@@ -328,7 +328,7 @@ static int edma_setup_tcd(struct dma_chan_data *channel, uint16_t soff,
 static int edma_set_config(struct dma_chan_data *channel,
 			   struct dma_sg_config *config)
 {
-	int handshake, irq;
+	int handshake, irq, i;
 	uint16_t soff = 0;
 	uint16_t doff = 0;
 
