@@ -206,7 +206,7 @@ static int edma_copy(struct dma_chan_data *channel, int bytes, uint32_t flags)
 
 	if (copied_bytes > 48000 * 2 * 2 * 2) {
 		copied_bytes -= 48000 * 2 * 2 * 2;
-		trace_edma("edma_copy() copied bytes %d", 48000 * 2 * 2 * 2);
+		//trace_edma("edma_copy() copied bytes %d", 48000 * 2 * 2 * 2);
 	}
 	return 0;
 }
