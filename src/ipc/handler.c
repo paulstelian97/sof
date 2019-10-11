@@ -539,11 +539,7 @@ static int ipc_dai_config(uint32_t header)
 	trace_ipc("ipc: dai %d,%d -> config ", config.type,
 		  config.dai_index);
 
-	//return 0;
-
 	/* get DAI */
-	if (config.type == SOF_DAI_IMX_SAI)
-		config.type = SOF_DAI_IMX_ESAI;
 	dai = dai_get(config.type, config.dai_index, 0 /* existing only */);
 	if (dai == NULL) {
 		trace_ipc_error("ipc: dai %d,%d not found",
