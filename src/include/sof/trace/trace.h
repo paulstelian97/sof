@@ -189,7 +189,7 @@ void trace_init(struct sof *sof);
  * for better debugging experience, without worrying about runtime performance.
  */
 
-#define DSP_PRINTF 1
+#define DSP_PRINTF 0
 
 #define trace_event(class, format, ...) do {\
 	if (IS_ENABLED(DSP_PRINTF)) __dsp_printf(format "\n", ##__VA_ARGS__); \
