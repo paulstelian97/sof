@@ -107,7 +107,7 @@ static inline int32_t vol_mult_s32_to_s24(int32_t x, int32_t vol)
 static void vol_s16_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int16_t *src;
 	int32_t *dest;
 	int32_t i;
@@ -119,9 +119,12 @@ static void vol_s16_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 		for (channel = 0; channel < dev->params.channels; channel++) {
 			src = buffer_read_frag_s16(source, buff_frag);
 			dest = buffer_write_frag_s32(sink, buff_frag);
+			*dest = (*src) << 16;
+#if 0
 			*dest = q_multsr_sat_32x32
 				(*src << 8, cd->volume[channel],
 				 Q_SHIFT_BITS_64(23, 16, 31));
+#endif
 
 			buff_frag++;
 		}
@@ -141,7 +144,7 @@ static void vol_s16_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 static void vol_s32_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int32_t *src;
 	int16_t *dest;
 	int32_t i;
@@ -154,7 +157,8 @@ static void vol_s32_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 			src = buffer_read_frag_s32(source, buff_frag);
 			dest = buffer_write_frag_s16(sink, buff_frag);
 
-			*dest = vol_mult_s32_to_s16(*src, cd->volume[channel]);
+			*dest = ((*src) >> 16) + ((*src >> 15) & 1);
+			//*dest = vol_mult_s32_to_s16(*src, cd->volume[channel]);
 
 			buff_frag++;
 		}
@@ -174,7 +178,7 @@ static void vol_s32_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 static void vol_s32_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int32_t *src;
 	int32_t *dest;
 	int32_t i;
@@ -187,9 +191,12 @@ static void vol_s32_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 			src = buffer_read_frag_s32(source, buff_frag);
 			dest = buffer_write_frag_s32(sink, buff_frag);
 
+			*dest = *src;
+#if 0
 			*dest = q_multsr_sat_32x32
 				(*src, cd->volume[channel],
 				 Q_SHIFT_BITS_64(31, 16, 31));
+#endif
 
 			buff_frag++;
 		}
@@ -209,7 +216,7 @@ static void vol_s32_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 static void vol_s16_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int16_t *src;
 	int16_t *dest;
 	int32_t i;
@@ -222,9 +229,12 @@ static void vol_s16_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 			src = buffer_read_frag_s16(source, buff_frag);
 			dest = buffer_write_frag_s16(sink, buff_frag);
 
+			*dest = *src;
+#if 0
 			*dest = q_multsr_sat_32x32_16
 				(*src, cd->volume[channel],
 				 Q_SHIFT_BITS_32(15, 16, 15));
+#endif
 
 			buff_frag++;
 		}
@@ -244,7 +254,7 @@ static void vol_s16_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 static void vol_s16_to_s24(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int16_t *src;
 	int32_t *dest;
 	int32_t i;
@@ -257,7 +267,8 @@ static void vol_s16_to_s24(struct comp_dev *dev, struct comp_buffer *sink,
 			src = buffer_read_frag_s16(source, buff_frag);
 			dest = buffer_write_frag_s32(sink, buff_frag);
 
-			*dest = vol_mult_s16_to_s24(*src, cd->volume[channel]);
+			*dest = (*src) << 8;
+			//*dest = vol_mult_s16_to_s24(*src, cd->volume[channel]);
 
 			buff_frag++;
 		}
@@ -277,7 +288,7 @@ static void vol_s16_to_s24(struct comp_dev *dev, struct comp_buffer *sink,
 static void vol_s24_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int32_t *src;
 	int16_t *dest;
 	int32_t i;
@@ -290,7 +301,8 @@ static void vol_s24_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 			src = buffer_read_frag_s32(source, buff_frag);
 			dest = buffer_write_frag_s16(sink, buff_frag);
 
-			*dest = vol_mult_s24_to_s16(*src, cd->volume[channel]);
+			*dest = ((*src) >> 8) + (((*src) >> 7) & 1);
+			//*dest = vol_mult_s24_to_s16(*src, cd->volume[channel]);
 
 			buff_frag++;
 		}
@@ -310,7 +322,7 @@ static void vol_s24_to_s16(struct comp_dev *dev, struct comp_buffer *sink,
 static void vol_s32_to_s24(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int32_t *src;
 	int32_t *dest;
 	int32_t i;
@@ -323,7 +335,8 @@ static void vol_s32_to_s24(struct comp_dev *dev, struct comp_buffer *sink,
 			src = buffer_read_frag_s32(source, buff_frag);
 			dest = buffer_write_frag_s32(sink, buff_frag);
 
-			*dest = vol_mult_s32_to_s24(*src, cd->volume[channel]);
+			*dest = ((*src) >> 8) + (((*src) >> 7) & 1);
+			//*dest = vol_mult_s32_to_s24(*src, cd->volume[channel]);
 
 			buff_frag++;
 		}
@@ -343,7 +356,7 @@ static void vol_s32_to_s24(struct comp_dev *dev, struct comp_buffer *sink,
 static void vol_s24_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int32_t *src;
 	int32_t *dest;
 	int32_t i;
@@ -356,9 +369,12 @@ static void vol_s24_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 			src = buffer_read_frag_s32(source, buff_frag);
 			dest = buffer_write_frag_s32(sink, buff_frag);
 
+			*dest = (*src) << 8;
+#if 0
 			*dest = q_multsr_sat_32x32
 				(sign_extend_s24(*src), cd->volume[channel],
 				 Q_SHIFT_BITS_64(23, 16, 31));
+#endif
 
 			buff_frag++;
 		}
@@ -378,7 +394,7 @@ static void vol_s24_to_s32(struct comp_dev *dev, struct comp_buffer *sink,
 static void vol_s24_to_s24(struct comp_dev *dev, struct comp_buffer *sink,
 			   struct comp_buffer *source, uint32_t frames)
 {
-	struct comp_data *cd = comp_get_drvdata(dev);
+	//struct comp_data *cd = comp_get_drvdata(dev);
 	int32_t *src;
 	int32_t *dest;
 	int32_t i;
@@ -391,7 +407,8 @@ static void vol_s24_to_s24(struct comp_dev *dev, struct comp_buffer *sink,
 			src = buffer_read_frag_s32(source, buff_frag);
 			dest = buffer_write_frag_s32(sink, buff_frag);
 
-			*dest = vol_mult_s24_to_s24(*src, cd->volume[channel]);
+			*dest = *src;
+			//*dest = vol_mult_s24_to_s24(*src, cd->volume[channel]);
 
 			buff_frag++;
 		}
