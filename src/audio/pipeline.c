@@ -956,6 +956,7 @@ void pipeline_schedule_cancel(struct pipeline *p)
 static enum task_state pipeline_task(void *arg)
 {
 	struct pipeline *p = arg;
+	uint64_t timestamp_before, timestamp_after;
 	int err;
 
 	tracev_pipe_with_ids(p, "pipeline_task()");
@@ -969,7 +970,15 @@ static enum task_state pipeline_task(void *arg)
 			return SOF_TASK_STATE_COMPLETED;
 	}
 
+	timestamp_before = platform_timer_get(platform_timer);
 	err = pipeline_copy(p);
+	timestamp_after = platform_timer_get(platform_timer);
+
+	(void)(timestamp_before - timestamp_after);
+
+	trace_pipe("pipeline_copy lasted %d us",
+		   (timestamp_after - timestamp_before) / (clock_ms_to_ticks(PLATFORM_DEFAULT_CLOCK, 1) / 1000));
+
 	if (err < 0) {
 		/* try to recover */
 		err = pipeline_xrun_recover(p);
