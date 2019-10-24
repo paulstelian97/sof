@@ -33,30 +33,12 @@ struct esai_pdata {
 		uint32_t prrc;
 		uint32_t pcrc;
 	} regs;
-};
-
-struct esai_pdata {
-	struct {
-		uint32_t ecr;
-		uint32_t tfcr;
-		uint32_t rfcr;
-		uint32_t saicr;
-		uint32_t tcr;
-		uint32_t tccr;
-		uint32_t rcr;
-		uint32_t rccr;
-		uint32_t tsma;
-		uint32_t tsmb;
-		uint32_t rsma;
-		uint32_t rsmb;
-		uint32_t prrc;
-		uint32_t pcrc;
-	} regs;
 	// TODO set the config here, prepare the registers and defer the
 	// actual updating of the HW registers to the start() and stop()
 	// triggers
 };
 
+__attribute__((unused))
 static void esai_regs_dump(struct dai *dai)
 {
 	/* Read every readable ESAI register and print it */
