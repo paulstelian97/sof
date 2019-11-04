@@ -13,6 +13,9 @@
 #include <user/trace.h>
 #include <stdint.h>
 
+struct sof;
+
+#ifdef CONFIG_TRACE_EDF
 /* schedule tracing */
 #define trace_edf_sch(format, ...) \
 	trace_event(TRACE_CLASS_EDF, format, ##__VA_ARGS__)
@@ -22,6 +25,11 @@
 
 #define tracev_edf_sch(format, ...) \
 	tracev_event(TRACE_CLASS_EDF, format, ##__VA_ARGS__)
+#else
+#define trace_edf_sch(...)
+#define trace_edf_sch_error(...)
+#define tracev_edf_sch(...)
+#endif /* CONFIG_TRACE_EDF */
 
 #define edf_sch_set_pdata(task, data) \
 	(task->private = data)
