@@ -121,13 +121,29 @@ static uint32_t host_dma_get_split(struct host_data *hd, uint32_t bytes)
 	uint32_t split_src = 0;
 	uint32_t split_dst = 0;
 
+	trace_host("host_dma_get_split(bytes=%d)", bytes);
+
+	if (hd->source == &hd->host)
+		trace_host("SOURCE IS HOST");
+	if (hd->source == &hd->local)
+		trace_host("SOURCE IS LOCAL");
+	if (hd->sink == &hd->host)
+		trace_host("SINK IS HOST");
+	if (hd->sink == &hd->local)
+		trace_host("SINK IS LOCAL");
+
 	if (local_elem->src + bytes > hd->source->current_end)
 		split_src = bytes -
 			(hd->source->current_end - local_elem->src);
+	trace_host("host_dma_get_split compute: local_elem->src=0x%08x, hd->source->current_end=0x%08x", (uintptr_t)local_elem->src, (uintptr_t)hd->source->current_end);
 
 	if (local_elem->dest + bytes > hd->sink->current_end)
 		split_dst = bytes -
 			(hd->sink->current_end - local_elem->dest);
+	trace_host("host_dma_get_split compute: local_elem->dest=0x%08x, hd->sink->current_end=0x%08x", (uintptr_t)local_elem->dest, (uintptr_t)hd->source->current_end);
+
+	trace_host("host_dma_get_split(bytes=%d) split_src=%d split_dst=%d",
+		   bytes, split_src, split_dst);
 
 	/* get max split, so the current copy will be minimum */
 	return MAX(split_src, split_dst);
@@ -202,6 +218,10 @@ static void host_one_shot_cb(struct comp_dev *dev, uint32_t bytes)
 		/* end of element, so use next */
 		source_elem = next_buffer(hd->source);
 		if (source_elem) {
+			trace_host_with_ids(dev,
+					    "host_one_shot_cb update hd->source->current_end from "
+					    "0x%08x to 0x%08x", (uintptr_t)hd->source->current_end,
+					    (uintptr_t)(source_elem->src + source_elem->size));
 			hd->source->current_end = source_elem->src +
 				source_elem->size;
 			local_elem->src = source_elem->src;
@@ -212,6 +232,10 @@ static void host_one_shot_cb(struct comp_dev *dev, uint32_t bytes)
 		/* end of element, so use next */
 		sink_elem = next_buffer(hd->sink);
 		if (sink_elem) {
+			trace_host_with_ids(dev,
+					    "host_one_shot_cb update hd->sink->current_end from "
+					    "0x%08x to 0x%08x", (uintptr_t)hd->sink->current_end,
+					    (uintptr_t)(sink_elem->src + sink_elem->size));
 			hd->sink->current_end = sink_elem->dest +
 				sink_elem->size;
 			local_elem->dest = sink_elem->dest;
@@ -248,6 +272,9 @@ static int create_local_elems(struct comp_dev *dev, uint32_t buffer_count,
 
 	dir = dev->params.direction == SOF_IPC_STREAM_PLAYBACK ?
 		DMA_DIR_HMEM_TO_LMEM : DMA_DIR_LMEM_TO_HMEM;
+
+	trace_host_with_ids(dev, "create_local_elems(dir=%d, buffer_count=%d, buffer_bytes=%d)",
+			    dev->params.direction, buffer_count, buffer_bytes);
 
 	/* if host buffer set we need to allocate local buffer */
 	if (hd->host.elem_array.count) {
@@ -416,9 +443,22 @@ static int host_elements_reset(struct comp_dev *dev)
 	struct dma_sg_elem *sink_elem = NULL;
 	struct dma_sg_elem *local_elem;
 
+	trace_host_with_ids(dev, "host_elements_reset");
+	if (hd->source == &hd->host)
+		trace_host_with_ids(dev, "SOURCE IS HOST");
+	if (hd->source == &hd->local)
+		trace_host_with_ids(dev, "SOURCE IS LOCAL");
+	if (hd->sink == &hd->host)
+		trace_host_with_ids(dev, "SINK IS HOST");
+	if (hd->sink == &hd->local)
+		trace_host_with_ids(dev, "SINK IS LOCAL");
+
+
 	/* setup elem to point to first source elem */
 	source_elem = hd->source->elem_array.elems;
 	if (source_elem) {
+		trace_host_with_ids(dev, "host_elements_reset setting source current_end as 0x%08x",
+				    (uintptr_t)(source_elem->src + source_elem->size));
 		hd->source->current = 0;
 		hd->source->current_end = source_elem->src + source_elem->size;
 	}
@@ -426,6 +466,8 @@ static int host_elements_reset(struct comp_dev *dev)
 	/* setup elem to point to first sink elem */
 	sink_elem = hd->sink->elem_array.elems;
 	if (sink_elem) {
+		trace_host_with_ids(dev, "host_elements_reset setting sink current_end as 0x%08x",
+				    (uintptr_t)(sink_elem->dest + sink_elem->size));
 		hd->sink->current = 0;
 		hd->sink->current_end = sink_elem->dest + sink_elem->size;
 	}
@@ -507,6 +549,9 @@ static int host_params(struct comp_dev *dev)
 		hd->source = &hd->local;
 		hd->sink = &hd->host;
 	}
+
+	trace_host_with_ids(dev, "host_params(): host.current_end is 0x%08x",
+			    (uintptr_t)hd->host.current_end);
 
 	/* TODO: should be taken from DMA */
 	if (hd->host.elem_array.count) {
@@ -612,6 +657,9 @@ static int host_prepare(struct comp_dev *dev)
 	hd->report_pos = 0;
 	dev->position = 0;
 
+	trace_host_with_ids(dev, "host_prepare(): host.current_end is 0x%08x",
+			    (uintptr_t)hd->host.current_end);
+
 	return 0;
 }
 
@@ -623,6 +671,9 @@ static int host_pointer_reset(struct comp_dev *dev)
 	hd->local_pos = 0;
 	hd->report_pos = 0;
 	dev->position = 0;
+
+	trace_host_with_ids(dev, "host_pointer_reset(): host.current_end is 0x%08x",
+			    (uintptr_t)hd->host.current_end);
 
 	return 0;
 }
@@ -681,6 +732,9 @@ static uint32_t host_buffer_get_copy_bytes(struct comp_dev *dev)
 	uint32_t split_value;
 	int ret;
 
+	trace_host_with_ids(dev, "host_buffer_get_copy_bytes(): host.current_end is 0x%08x",
+			    (uintptr_t)hd->host.current_end);
+
 	if (hd->copy_type == COMP_COPY_ONE_SHOT) {
 		/* calculate minimum size to copy */
 		if (dev->params.direction == SOF_IPC_STREAM_PLAYBACK) {
@@ -688,22 +742,31 @@ static uint32_t host_buffer_get_copy_bytes(struct comp_dev *dev)
 						       struct comp_buffer,
 						       source_list);
 			copy_bytes = local_buffer->free;
+			trace_host_with_ids(dev, "host_buffer_get_copy_bytes playback free %d", copy_bytes);
 		} else {
 			local_buffer = list_first_item(&dev->bsource_list,
 						       struct comp_buffer,
 						       sink_list);
 			copy_bytes = local_buffer->avail;
+			trace_host_with_ids(dev, "host_buffer_get_copy_bytes capture avail %d", copy_bytes);
 		}
 
 		/* copy_bytes should be aligned to minimum possible chunk of
 		 * data to be copied by dma.
 		 */
 		copy_bytes = ALIGN_DOWN(copy_bytes, hd->dma_copy_align);
+		trace_host_with_ids(dev, "host_buffer_get_copy_bytes after align %d", copy_bytes);
 
 		split_value = host_dma_get_split(hd, copy_bytes);
+		trace_host_with_ids(dev, "host_buffer_get_copy_bytes %d split value %d", copy_bytes, split_value);
 		if (split_value)
 			copy_bytes -= split_value;
 
+		trace_host_with_ids(dev, "host_buffer_get_copy_bytes Setting local_elem->size as %d", copy_bytes);
+		if (copy_bytes & 0x80000000) {
+			trace_host_error_with_ids(dev, "Negative local_elem->size in host_buffer_get_copy_bytes!!!");
+			while (1) ;
+		}
 		local_elem->size = copy_bytes;
 	} else {
 		/* get data sizes from DMA */
@@ -715,27 +778,49 @@ static uint32_t host_buffer_get_copy_bytes(struct comp_dev *dev)
 					 ret);
 			return 0;
 		}
+		trace_host_with_ids(dev, "host_buffer_get_copy_bytes(avail=%d free=%d)",
+				    avail_bytes, free_bytes);
 
 		/* calculate minimum size to copy */
 		if (dev->params.direction == SOF_IPC_STREAM_PLAYBACK) {
 			local_buffer = list_first_item(&dev->bsink_list,
 						       struct comp_buffer,
 						       source_list);
+			trace_host_with_ids(dev, "host_buffer_get_copy_bytes, %d bytes free",
+					    local_buffer->free);
 			copy_bytes = MIN(avail_bytes, local_buffer->free);
 		} else {
 			local_buffer = list_first_item(&dev->bsource_list,
 						       struct comp_buffer,
 						       sink_list);
+			trace_host_with_ids(dev, "host_buffer_get_copy_bytes, %d bytes available",
+					    local_buffer->avail);
 			copy_bytes = MIN(local_buffer->avail, free_bytes);
 		}
 
 		/* copy_bytes should be aligned to minimum possible chunk of
 		 * data to be copied by dma.
 		 */
+		trace_host_with_ids(dev, "host_buffer_get_copy_bytes, aligning %d down to %d",
+				    copy_bytes, hd->dma_copy_align);
 		copy_bytes = ALIGN_DOWN(copy_bytes, hd->dma_copy_align);
+		trace_host_with_ids(dev, "host_buffer_get_copy_bytes, after align we have %d",
+				    copy_bytes);
 	}
 
 	return copy_bytes;
+}
+
+static void dump_config(struct comp_dev *dev) {
+	struct host_data *hd = comp_get_drvdata(dev);
+	trace_host_with_ids(dev, "dump_config()");
+	for (int i = 0; i < hd->config.elem_array.count; i++) {
+		trace_host_with_ids(dev, "elem %d is 0x%08x -> 0x%08x size %d",
+				    i,
+				    hd->config.elem_array.elems[i].src,
+				    hd->config.elem_array.elems[i].dest,
+				    hd->config.elem_array.elems[i].size);
+	}
 }
 
 /* copy and process stream data from source to sink buffers */
@@ -748,6 +833,9 @@ static int host_copy(struct comp_dev *dev)
 
 	tracev_host_with_ids(dev, "host_copy()");
 
+	trace_host_with_ids(dev, "host_copy(): host.current_end is 0x%08x",
+			    (uintptr_t)hd->host.current_end);
+
 	if (dev->state != COMP_STATE_ACTIVE)
 		return 0;
 
@@ -757,15 +845,21 @@ static int host_copy(struct comp_dev *dev)
 		flags |= DMA_COPY_ONE_SHOT;
 
 	/* update first transfer manually */
+	trace_host_with_ids(dev, "host_copy(): about to call host_one_shot_cb");
+	dump_config(dev);
 	if (!dev->position && flags & COMP_COPY_ONE_SHOT)
 		host_one_shot_cb(dev, hd->dma_buffer->size);
 
+	trace_host_with_ids(dev, "host_copy(): about to call host_buffer_get_copy_bytes");
+	dump_config(dev);
 	copy_bytes = host_buffer_get_copy_bytes(dev);
 	if (!copy_bytes) {
 		trace_host_with_ids(dev, "host_copy(): no bytes to copy");
 		return ret;
 	}
 
+	trace_host_with_ids(dev, "host_copy(): about to call set config");
+	dump_config(dev);
 	/* reconfigure transfer */
 	ret = dma_set_config(hd->chan, &hd->config);
 	if (ret < 0) {

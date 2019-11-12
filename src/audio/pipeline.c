@@ -957,10 +957,23 @@ void pipeline_schedule_cancel(struct pipeline *p)
 	schedule_task_cancel(p->pipe_task);
 }
 
+static int task_timer_counter_ret(uint64_t init_timer, int rc) {
+	static uint64_t last_delta = 0;
+	uint64_t delta = platform_timer_get(platform_timer) - init_timer;
+
+	if (delta > last_delta) {
+		trace_pipe_error("pipeline_task lasted %d ticks or %d us",
+				 delta, delta / (clock_ms_to_ticks(PLATFORM_DEFAULT_CLOCK, 1) / 1000));
+		last_delta = delta;
+	}
+	return rc;
+}
+
 static enum task_state pipeline_task(void *arg)
 {
 	struct pipeline *p = arg;
 	int err;
+	uint64_t timer = platform_timer_get(platform_timer);
 
 	tracev_pipe_with_ids(p, "pipeline_task()");
 
@@ -970,7 +983,7 @@ static enum task_state pipeline_task(void *arg)
 		err = pipeline_xrun_recover(p);
 		if (err < 0)
 			/* skip copy if still in xrun */
-			return SOF_TASK_STATE_COMPLETED;
+			return task_timer_counter_ret(timer, SOF_TASK_STATE_COMPLETED);
 	}
 
 	err = pipeline_copy(p);
@@ -982,11 +995,11 @@ static enum task_state pipeline_task(void *arg)
 						  "recover failed! pipeline "
 						  "will be stopped!");
 			/* failed - host will stop this pipeline */
-			return SOF_TASK_STATE_COMPLETED;
+			return task_timer_counter_ret(timer, SOF_TASK_STATE_COMPLETED);
 		}
 	}
 
 	tracev_pipe("pipeline_task() sched");
 
-	return SOF_TASK_STATE_RESCHEDULE;
+	return task_timer_counter_ret(timer, SOF_TASK_STATE_RESCHEDULE);
 }

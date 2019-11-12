@@ -82,9 +82,12 @@ void dai_put(struct dai *dai)
 {
 	int ret;
 
+	trace_error(TRACE_CLASS_DAI, "dai_put() sref=%d", dai->sref);
 	spin_lock(dai->lock);
 	if (--dai->sref == 0) {
+		trace_error(TRACE_CLASS_DAI, "dai_put() about to call dai_remove()");
 		ret = dai_remove(dai);
+		trace_error(TRACE_CLASS_DAI, "dai_put() did call dai_remove()");
 		if (ret < 0) {
 			trace_error(TRACE_CLASS_DAI,
 				    "dai_put() error: "

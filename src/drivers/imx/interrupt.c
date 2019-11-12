@@ -299,9 +299,8 @@ static inline void irq_handler(void *data, uint32_t line_index)
 
 		if (!--tries) {
 			tries = IRQ_MAX_TRIES;
-			trace_irq_error("irq_handler(): IRQ storm, status "
-					PRIx64,
-					get_irqsteer_interrupts(line_index));
+			trace_irq_error("irq_handler(): IRQ storm, status 0x%08x%08x",
+					(status >> 32) & 0xFFFFFFFF, status & 0xFFFFFFFF);
 		}
 	}
 }
@@ -351,7 +350,7 @@ static const struct irq_cascade_ops irq_ops = {
 /* IRQ_STEER interrupts */
 #define IRQSTR_CASCADE_TMPL_DECL(n) \
 	{ \
-		.name = irq_name_irqsteer[n], \
+		.name = "irqsteer" #n, \
 		.irq = IRQ_NUM_IRQSTR_DSP##n, \
 		.handler = irqstr_irqhandler_##n, \
 		.ops = &irq_ops, \

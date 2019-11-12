@@ -157,6 +157,8 @@ int dma_sg_alloc(struct dma_sg_elem_array *elem_array,
 {
 	int i;
 
+	trace_event(TRACE_CLASS_DMA, "dma_sg_alloc direction=%d buffer_count=%d buffer_bytes=%d", direction, buffer_count, buffer_bytes);
+	trace_event(TRACE_CLASS_DMA, "dma_sg_alloc dma_buffer_addr=0x%08x external_addr=0x%08x", dma_buffer_addr, external_addr);
 	elem_array->elems = rzalloc(zone, SOF_MEM_CAPS_RAM,
 				    sizeof(struct dma_sg_elem) * buffer_count);
 	if (!elem_array->elems)
@@ -178,6 +180,10 @@ int dma_sg_alloc(struct dma_sg_elem_array *elem_array,
 		}
 
 		dma_buffer_addr += buffer_bytes;
+		trace_event(TRACE_CLASS_DMA, "dma_sg_alloc set elem %d as 0x%08x -> 0x%08x size %d",
+			    i, elem_array->elems[i].src,
+			    elem_array->elems[i].dest,
+			    elem_array->elems[i].size);
 	}
 	elem_array->count = buffer_count;
 	return 0;

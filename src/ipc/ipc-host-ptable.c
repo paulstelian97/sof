@@ -66,9 +66,13 @@ static int ipc_parse_page_descriptors(uint8_t *page_table,
 			e->dest = phy_addr;
 
 		/* the last page may be not full used */
-		if (i == (ring->pages - 1))
+		if (i == (ring->pages - 1)) {
+			trace_event(TRACE_CLASS_IPC, "IPC page table, last page setting size %d",
+				    ring->size - HOST_PAGE_SIZE * i);
 			e->size = ring->size - HOST_PAGE_SIZE * i;
-		else
+			if (e->size & 0x80000000)
+				trace_error(TRACE_CLASS_IPC, "NEGATIVE LAST SIZE IN IPC PAGE TABLE!!!!");
+		} else
 			e->size = HOST_PAGE_SIZE;
 	}
 

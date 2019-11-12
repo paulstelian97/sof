@@ -273,6 +273,14 @@ static int ipc_stream_pcm_params(uint32_t stream)
 	if (err < 0)
 		goto error;
 
+	for (int i = 0; i < elem_array.count; i++) {
+		trace_ipc("host buffer elem %d 0x%08x -> 0x%08x size %d",
+			  i,
+			  elem_array.elems[i].src,
+			  elem_array.elems[i].dest,
+			  elem_array.elems[i].size);
+	}
+
 	err = comp_set_attribute(cd, COMP_ATTR_HOST_BUFFER, &elem_array);
 	if (err < 0) {
 		trace_ipc_error("ipc: comp %d host buffer failed %d",

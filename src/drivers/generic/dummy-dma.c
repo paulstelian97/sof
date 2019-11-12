@@ -95,6 +95,10 @@ static size_t dummy_dma_copy_crt_elem(struct dma_chan_pdata *pdata,
 	orig_size = pdata->elems->elems[pdata->sg_elem_curr_idx].size;
 	remaining_size = orig_size - pdata->elem_progress;
 	copy_size = MIN(remaining_size, bytes);
+	rptr += pdata->elem_progress;
+	wptr += pdata->elem_progress;
+
+	trace_dummydma("copy %08x -> %08x size %d", rptr, wptr, copy_size);
 
 	/* On playback, invalidate host buffer (it may lie in a cached area).
 	 * Otherwise we could be playing stale data.
@@ -134,9 +138,14 @@ static size_t dummy_dma_comp_avail_data_cyclic(struct dma_chan_pdata *pdata)
 	size_t size = 0;
 	int i;
 
-	for (i = 0; i < pdata->elems->count; i++)
-		size += pdata->elems->elems[i].size;
+	trace_dummydma("dummy_dma_comp_avail_data_cyclic");
 
+	for (i = 0; i < pdata->elems->count; i++) {
+		size += pdata->elems->elems[i].size;
+		trace_dummydma("+= %d", pdata->elems->elems[i].size);
+	}
+
+	trace_dummydma("= %d", size);
 	return size;
 }
 
@@ -148,12 +157,18 @@ static size_t dummy_dma_comp_avail_data_noncyclic(struct dma_chan_pdata *pdata)
 	size_t size = 0;
 	int i;
 
-	for (i = pdata->sg_elem_curr_idx; i < pdata->elems->count; i++)
+	trace_dummydma("dummy_dma_comp_avail_data_noncyclic");
+
+	for (i = pdata->sg_elem_curr_idx; i < pdata->elems->count; i++) {
 		size += pdata->elems->elems[i].size;
+		trace_dummydma("+= %d", pdata->elems->elems[i].size);
+	}
 
 	/* Account for partially copied current elem */
+	trace_dummydma("-= %d", pdata->elem_progress);
 	size -= pdata->elem_progress;
 
+	trace_dummydma("= %d", size);
 	return size;
 }
 
@@ -191,6 +206,8 @@ static size_t dummy_dma_do_copies(struct dma_chan_pdata *pdata, int bytes)
 
 	if (!avail)
 		return -ENODATA;
+	
+	trace_dummydma("dummy_dma_do_copies avail=%d bytes=%d", avail, bytes);
 
 	while (bytes) {
 		crt_copied = dummy_dma_copy_crt_elem(pdata, bytes);
@@ -345,6 +362,18 @@ static int dummy_dma_set_config(struct dma_chan_data *channel,
 		ret = -EINVAL;
 		goto out;
 	}
+	
+	for (int i = 0; i < config->elem_array.count; i++) {
+		trace_dummydma("dummy_dma_set_config() elem: src=0x%08x dest=0x%08x size=%d",
+			       config->elem_array.elems[i].src,
+			       config->elem_array.elems[i].dest,
+			       config->elem_array.elems[i].size);
+		if (config->elem_array.elems[i].size & 0x80000000) {
+			trace_dummydma_error("dummy_dma_set_config() elem error, size=%d", config->elem_array.elems[i].size);
+			while (1) ;
+			return -EINVAL;
+		}
+	}
 
 	channel->direction = config->direction;
 
@@ -408,6 +437,8 @@ static int dummy_dma_copy(struct dma_chan_data *channel, int bytes,
 {
 	struct dma_cb_data next;
 	struct dma_chan_pdata *pdata = dma_chan_get_data(channel);
+
+	trace_dummydma("dummy_dma_copy()");
 
 	//next.elem.size = do_copy(channel, bytes);
 	next.elem.size = dummy_dma_do_copies(pdata, bytes);

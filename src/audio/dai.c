@@ -82,6 +82,7 @@ static void dai_dma_cb(void *data, uint32_t type, struct dma_cb_data *next)
 	void *buffer_ptr;
 
 	tracev_dai_with_ids(dev, "dai_dma_cb()");
+	trace_dai_with_ids(dev, "dai_dma_cb() dir=%d", dev->params.direction);
 
 	next->status = DMA_CB_STATUS_RELOAD;
 
@@ -165,12 +166,15 @@ static struct comp_dev *dai_new(struct sof_ipc_comp *comp)
 
 	comp_set_drvdata(dev, dd);
 
+	trace_dai_with_ids(dev, "dai_new() dir=%d dai->dir=%d (before dai_get)", dev->params.direction, dai->direction);
 	dd->dai = dai_get(dai->type, dai->dai_index, DAI_CREAT);
 	if (!dd->dai) {
 		trace_dai_error("dai_new() error: dai_get() failed to create "
 				"DAI.");
 		goto error;
 	}
+
+	trace_dai_with_ids(dev, "dai_new() dir=%d (after dai_get)", dev->params.direction);
 
 	/* request GP LP DMA with shared access privilege */
 	dir = dai->direction == SOF_IPC_STREAM_PLAYBACK ?
@@ -437,7 +441,7 @@ static int dai_prepare(struct comp_dev *dev)
 	struct dai_data *dd = comp_get_drvdata(dev);
 	int ret = 0;
 
-	trace_dai_with_ids(dev, "dai_prepare()");
+	trace_dai_with_ids(dev, "dai_prepare() dir=%d", dev->params.direction);
 
 	ret = comp_set_state(dev, COMP_TRIGGER_PREPARE);
 	if (ret < 0)
@@ -485,7 +489,7 @@ static int dai_reset(struct comp_dev *dev)
 	struct dai_data *dd = comp_get_drvdata(dev);
 	struct dma_sg_config *config = &dd->config;
 
-	trace_dai_with_ids(dev, "dai_reset()");
+	trace_dai_with_ids(dev, "dai_reset() dir=%d", dev->params.direction);
 
 	dma_sg_free(&config->elem_array);
 
@@ -523,7 +527,7 @@ static int dai_comp_trigger(struct comp_dev *dev, int cmd)
 	struct dai_data *dd = comp_get_drvdata(dev);
 	int ret;
 
-	trace_dai_with_ids(dev, "dai_comp_trigger(), command = %u", cmd);
+	trace_dai_with_ids(dev, "dai_comp_trigger(), command = %u, dir=%d", cmd, dev->params.direction);
 
 	ret = comp_set_state(dev, cmd);
 	if (ret < 0)
@@ -683,6 +687,7 @@ static int dai_config(struct comp_dev *dev, struct sof_ipc_dai_config *config)
 	trace_dai_with_ids(dev, "config comp %d pipe %d dai %d type %d",
 			   dev->comp.id, dev->comp.pipeline_id,
 			   config->dai_index, config->type);
+	trace_dai_with_ids(dev, "dir %d dai_dir", dev->params.direction, dai->direction);
 
 	/* cannot configure DAI while active */
 	if (dev->state == COMP_STATE_ACTIVE) {
@@ -807,6 +812,7 @@ static int dai_config(struct comp_dev *dev, struct sof_ipc_dai_config *config)
 					      dd->stream_id);
 		channel = EDMA_HS_GET_CHAN(handshake);
 
+		trace_dai("ESAI direction: %d channel: %d", dai->direction, channel);
 		switch (dev->params.frame_fmt) {
 		case SOF_IPC_FRAME_S16_LE:
 			dd->frame_bytes = 2;
