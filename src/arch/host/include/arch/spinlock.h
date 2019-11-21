@@ -15,6 +15,10 @@ typedef struct {
 
 static inline void arch_spinlock_init(spinlock_t **lock) {}
 static inline void arch_spin_lock(spinlock_t *lock) {}
+static inline int arch_try_lock(spinlock_t *lock)
+{
+	return 1;
+}
 static inline void arch_spin_unlock(spinlock_t *lock) {}
 
 #endif /* __ARCH_SPINLOCK_H__ */

@@ -12,11 +12,27 @@
 #include <platform/drivers/interrupt.h>
 #include <sof/lib/cpu.h>
 #include <sof/list.h>
-#include <sof/spinlock.h>
 #include <sof/trace/trace.h>
 #include <user/trace.h>
 #include <stdbool.h>
 #include <stdint.h>
+
+/* For spinlock_t we cannot directly include <sof/spinlock.h> anymore. But
+ * we only need this type which is defined in <arch/spinlock.h>. But in
+ * order to get to it we need to pretend we are including
+ * <sof/spinlock.h> to avoid the compile error.
+ *
+ * Also, if that file is already included we don't need further
+ * includes.
+ *
+ * Solves a circular dependency.
+ */
+
+#ifndef __SOF_SPINLOCK_H__
+#define __SOF_SPINLOCK_H__
+#include <arch/spinlock.h>
+#undef __SOF_SPINLOCK_H__
+#endif
 
 #define trace_irq(__e)	trace_event(TRACE_CLASS_IRQ, __e)
 #define trace_irq_error(__e, ...) \

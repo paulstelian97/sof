@@ -17,6 +17,7 @@
 #include <sof/drivers/interrupt.h>
 #include <sof/trace/trace.h>
 #include <config.h>
+#include <stdint.h>
 
 /*
  * Lock debugging provides a simple interface to debug deadlocks. The rmbox
@@ -68,24 +69,19 @@
 #include <sof/trace/trace.h>
 #include <ipc/trace.h>
 #include <user/trace.h>
-#include <stdint.h>
 
 #define DBG_LOCK_USERS		8
 #define DBG_LOCK_TRIES		10000
 
-#define trace_lock(__e)		trace_error_atomic(TRACE_CLASS_LOCK, __e)
-#define tracev_lock(__e)	tracev_event_atomic(TRACE_CLASS_LOCK, __e)
-#define trace_lock_error(__e)	trace_error_atomic(TRACE_CLASS_LOCK, __e)
+#define trace_lock(__e, ...) \
+	trace_error_atomic(TRACE_CLASS_LOCK, __e, ##__VA_ARGS__)
+#define tracev_lock(__e) \
+	tracev_event_atomic(TRACE_CLASS_LOCK, __e)
+#define trace_lock_error(__e, ...) \
+	trace_error_atomic(TRACE_CLASS_LOCK, __e, ##__VA_ARGS__)
 
 extern uint32_t lock_dbg_atomic;
 extern uint32_t lock_dbg_user[DBG_LOCK_USERS];
-
-/* all SMP spinlocks need init, nothing todo on UP */
-#define spinlock_init(lock) \
-	do { \
-		arch_spinlock_init(lock); \
-		(*lock)->user = __LINE__; \
-	} while (0)
 
 /* panic on deadlock */
 #define spin_try_lock_dbg(lock) \
@@ -97,8 +93,8 @@ extern uint32_t lock_dbg_user[DBG_LOCK_USERS];
 		} \
 		if (__tries == 0) { \
 			trace_lock_error("DED"); \
-			trace_lock_value(__LINE__); \
-			trace_lock_value((lock)->user); \
+			trace_lock_error("line: %d", __LINE__); \
+			trace_lock_error("user: %d", (lock)->user); \
 			panic(SOF_IPC_PANIC_DEADLOCK); /* lock not acquired */ \
 		} \
 	} while (0)
@@ -111,10 +107,11 @@ extern uint32_t lock_dbg_user[DBG_LOCK_USERS];
 			int  __count = lock_dbg_atomic >= DBG_LOCK_USERS \
 				? DBG_LOCK_USERS : lock_dbg_atomic; \
 			trace_lock_error("eal"); \
-			trace_lock_value(__LINE__); \
-			trace_lock_value(lock_dbg_atomic); \
+			trace_lock_error("line: %d", __LINE__); \
+			trace_lock_error("user: %d", (lock)->user); \
 			for (__i = 0; __i < __count; __i++) { \
-				trace_lock_value((lock_dbg_atomic << 24) | \
+				trace_lock_error("value: %d", \
+					(lock_dbg_atomic << 24) | \
 					lock_dbg_user[__i]); \
 			} \
 		} \
@@ -123,13 +120,13 @@ extern uint32_t lock_dbg_user[DBG_LOCK_USERS];
 #define spin_lock_dbg() \
 	do { \
 		trace_lock("LcE"); \
-		trace_lock_value(__LINE__); \
+		trace_lock("line: %d", __LINE__); \
 	} while (0)
 
 #define spin_unlock_dbg() \
 	do { \
 		trace_lock("LcX"); \
-		trace_lock_value(__LINE__); \
+		trace_lock("line: %d", __LINE__); \
 	} while (0)
 
 #else
@@ -137,38 +134,6 @@ extern uint32_t lock_dbg_user[DBG_LOCK_USERS];
 #define spin_lock_dbg()
 #define spin_unlock_dbg()
 #endif
-
-/* does nothing on UP systems */
-#define spin_lock(lock) \
-	do { \
-		spin_lock_dbg(); \
-		spin_lock_log(lock); \
-		spin_try_lock_dbg(lock); \
-	} while (0)
-
-#define spin_unlock(lock) \
-	do { \
-		arch_spin_unlock(lock); \
-		spin_unlock_dbg(); \
-	} while (0)
-
-/* disables all IRQ sources and takes lock - enter atomic context */
-#define spin_lock_irq(lock, flags) \
-	do { \
-		flags = interrupt_global_disable(); \
-		lock_dbg_atomic++; \
-		spin_lock(lock); \
-		if (lock_dbg_atomic < DBG_LOCK_USERS) \
-			lock_dbg_user[lock_dbg_atomic - 1] = (lock)->user; \
-	} while (0)
-
-/* re-enables current IRQ sources and releases lock - leave atomic context */
-#define spin_unlock_irq(lock, flags) \
-	do { \
-		spin_unlock(lock); \
-		lock_dbg_atomic--; \
-		interrupt_global_enable(flags); \
-	} while (0)
 
 #else
 
@@ -178,43 +143,70 @@ extern uint32_t lock_dbg_user[DBG_LOCK_USERS];
 #define spin_lock_dbg() do {} while (0)
 #define spin_unlock_dbg() do {} while (0)
 
-/* all SMP spinlocks need init, nothing todo on UP */
-#define spinlock_init(lock) \
-	arch_spinlock_init(lock)
-
-/* does nothing on UP systems */
-#define spin_lock(lock) \
-	do { \
-		spin_lock_dbg(); \
-		arch_spin_lock(lock); \
-	} while (0)
-
-#define spin_try_lock(lock) \
-	({ \
-		spin_lock_dbg(); \
-		arch_try_lock(lock); \
-	})
-
-#define spin_unlock(lock) \
-	do { \
-		arch_spin_unlock(lock); \
-		spin_unlock_dbg(); \
-	} while (0)
-
-/* disables all IRQ sources and takes lock - enter atomic context */
-#define spin_lock_irq(lock, flags) \
-	do { \
-		flags = interrupt_global_disable(); \
-		spin_lock(lock); \
-	} while (0)
-
-/* re-enables current IRQ sources and releases lock - leave atomic context */
-#define spin_unlock_irq(lock, flags) \
-	do { \
-		spin_unlock(lock); \
-		interrupt_global_enable(flags); \
-	} while (0)
+static inline int spin_try_lock(spinlock_t *lock)
+{
+	spin_lock_dbg();
+	return arch_try_lock(lock);
+}
 
 #endif
+
+/* all SMP spinlocks need init, nothing todo on UP */
+static inline void spinlock_init(spinlock_t **lock)
+{
+	arch_spinlock_init(lock);
+#if CONFIG_DEBUG_LOCKS
+	(*lock)->user = __LINE__;
+#endif
+}
+
+/* does nothing on UP systems */
+static inline void spin_lock(spinlock_t *lock)
+{
+	spin_lock_dbg();
+#if CONFIG_DEBUG_LOCKS
+	spin_lock_log(lock);
+	spin_try_lock_dbg(lock);
+#else
+	arch_spin_lock(lock);
+#endif
+}
+
+/* disables all IRQ sources and takes lock - enter atomic context */
+static inline uint32_t _spin_lock_irq(spinlock_t *lock)
+{
+	uint32_t flags;
+
+	flags = interrupt_global_disable();
+#if CONFIG_DEBUG_LOCKS
+	lock_dbg_atomic++;
+#endif
+	spin_lock(lock);
+#if CONFIG_DEBUG_LOCKS
+	if (lock_dbg_atomic < DBG_LOCK_USERS)
+		lock_dbg_user[lock_dbg_atomic - 1] = (lock)->user;
+#endif
+	return flags;
+}
+
+#define spin_lock_irq(lock, flags) (flags = _spin_lock_irq(lock))
+
+static inline void spin_unlock(spinlock_t *lock)
+{
+	arch_spin_unlock(lock);
+#if CONFIG_DEBUG_LOCKS
+	spin_unlock_dbg();
+#endif
+}
+
+/* re-enables current IRQ sources and releases lock - leave atomic context */
+static inline void spin_unlock_irq(spinlock_t *lock, uint32_t flags)
+{
+	spin_unlock(lock);
+#if CONFIG_DEBUG_LOCKS
+	lock_dbg_atomic--;
+#endif
+	interrupt_global_enable(flags);
+}
 
 #endif /* __SOF_SPINLOCK_H__ */
