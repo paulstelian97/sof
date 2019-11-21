@@ -43,6 +43,8 @@ void panic_rewind(uint32_t p, uint32_t stack_rewind_frames,
 
 	ext_offset = (char *)mailbox_get_exception_base() + ARCH_OOPS_SIZE;
 
+	trace_error(TRACE_CLASS_IPC, "Got panic, please analyze core dump");
+
 	/* dump panic info, filename ane linenum */
 	dump_panicinfo(ext_offset, panic_info);
 	ext_offset += sizeof(struct sof_ipc_panic_info);
