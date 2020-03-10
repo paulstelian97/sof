@@ -72,6 +72,9 @@ static int sdma_run_c0(struct dma *dma, uint8_t cmd, uint32_t buf_addr, uint16_t
 	struct sdma_chan *c0data = dma_chan_get_data(c0);
 	int ret;
 
+	trace_sdma_error("sdma_run_c0 cmd %d buf_addr 0x%08x sdma_addr 0x%04x count %d",
+			 cmd, buf_addr, sdma_addr, count);
+
 	c0data->descriptors[0].config = SDMA_BD_CMD(cmd) | SDMA_BD_COUNT(count)
 		| SDMA_BD_WRAP | SDMA_BD_DONE | SDMA_BD_INT;
 	c0data->descriptors[0].buf_addr = buf_addr;
@@ -94,6 +97,10 @@ static int sdma_run_c0(struct dma *dma, uint8_t cmd, uint32_t buf_addr, uint16_t
 	if (ret < 0)
 		return ret;
 
+	if (!(dma_reg_read(dma, SDMA_STOP_STAT) & 1)) {
+		trace_sdma_error("SDMA channel 0 stopped instantly!!");
+	}
+
 	/* 1 is BIT(0) for channel 0, the bit will be cleared as the
 	 * channel finishes
 	 */
@@ -104,6 +111,8 @@ static int sdma_run_c0(struct dma *dma, uint8_t cmd, uint32_t buf_addr, uint16_t
 	/* Switch to dynamic context if needed */
 	if ((dma_reg_read(dma, SDMA_CONFIG) & SDMA_CONFIG_CSM_MSK) == SDMA_CONFIG_CSM_STATIC)
 		dma_reg_update_bits(dma, SDMA_CONFIG, SDMA_CONFIG_CSM_MSK, SDMA_CONFIG_CSM_DYN);
+
+	trace_sdma_error("sdma_run_c0 done, ret = %d", ret);
 
 	return ret;
 }
@@ -141,6 +150,7 @@ static int sdma_upload_context(struct dma_chan_data *chan) {
 
 	/* Ensure context is ready for upload */
 	dcache_writeback_region(pdata->ctx, sizeof(*pdata->ctx));
+	trace_sdma_error("sdma_upload_context for ch %d", chan->index);
 
 	/* Last parameters are unneeded for this command and are ignored;
 	 * set to 0.
@@ -385,6 +395,9 @@ static int sdma_start(struct dma_chan_data *channel)
 	/* Set a runnable channel priority */
 	dma_reg_write(channel->dma, SDMA_CHNPRI(channel->index), SDMA_DEFPRI);
 
+	trace_sdma_error("DMA start channel %d BDs start at 0x%08x",
+			 channel->index, (uintptr_t)pdata->descriptors);
+
 	return 0;
 }
 
@@ -401,6 +414,8 @@ static int sdma_stop(struct dma_chan_data *channel) {
 		 * context restore?
 		 */
 		pdata->ccb->current_bd_paddr = pdata->ccb->base_bd_paddr;
+
+		return sdma_upload_context(channel);
 	}
 
 	return 0;
@@ -645,11 +660,13 @@ static int sdma_set_config(struct dma_chan_data *channel, struct dma_sg_config *
 		return ret;
 	}
 
+	trace_sdma_error("SDMA context uploaded");
 	/* Context uploaded, we can set up events now */
 	sdma_set_event(channel, hwevent);
 
 	/* Finally set channel priority */
 
+	trace_sdma_error("Set channel priority");
 	dma_reg_write(channel->dma, SDMA_CHNPRI(channel->index), SDMA_DEFPRI);
 
 	return 0;

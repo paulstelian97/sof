@@ -400,6 +400,12 @@ void platform_interrupt_init(void)
 
 	for (i = 0; i < ARRAY_SIZE(dsp_irq); i++)
 		interrupt_cascade_register(dsp_irq + i);
+
+	/* Dummy registers; these will fuck up IRQ handling to hell */
+
+	interrupt_register(IRQ_NUM_IRQSTR_DSP0, irqstr_irqhandler_0, NULL);
+	interrupt_register(IRQ_NUM_IRQSTR_DSP1, irqstr_irqhandler_1, NULL);
+	interrupt_register(IRQ_NUM_IRQSTR_DSP2, irqstr_irqhandler_2, NULL);
 }
 
 void platform_interrupt_set(uint32_t irq)
