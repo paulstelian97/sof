@@ -27,8 +27,8 @@
  * on the other platforms.
  */
 
-#define SDMA2_IRQ	2 /* TODO What? */
-#define SDMA2_IRQ_NAME	"irqstr1" /* TODO find the correct one */
+#define SDMA2_IRQ	7 /* TODO What? */
+#define SDMA2_IRQ_NAME	"irqstr2" /* TODO find the correct one */
 
 #endif /* __PLATFORM_LIB_DMA_H__ */
 
