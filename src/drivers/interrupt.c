@@ -200,6 +200,7 @@ static int irq_register_child(struct irq_cascade_desc *cascade, int irq,
 				SOF_MEM_CAPS_RAM, sizeof(struct irq_desc));
 		if (!child) {
 			ret = -ENOMEM;
+			heap_trace_all(1);
 			goto out;
 		}
 

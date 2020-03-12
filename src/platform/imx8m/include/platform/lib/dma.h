@@ -23,8 +23,12 @@
 
 /* SDMA2 specific data */
 
-#define SDMA2_IRQ	34 /* TODO What? */
-#define SDMA2_IRQ_NAME	"irqstr0" /* TODO find the correct one */
+/* Interrupts must be set up interestingly -- shift them all by 32 like
+ * on the other platforms.
+ */
+
+#define SDMA2_IRQ	2 /* TODO What? */
+#define SDMA2_IRQ_NAME	"irqstr1" /* TODO find the correct one */
 
 #endif /* __PLATFORM_LIB_DMA_H__ */
 

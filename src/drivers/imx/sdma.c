@@ -108,6 +108,20 @@ static int sdma_run_c0(struct dma *dma, uint8_t cmd, uint32_t buf_addr, uint16_t
 	if (ret >= 0)
 		ret = 0;
 
+	dcache_invalidate_region(c0data->descriptors, sizeof(c0data->descriptors));
+	/* Check buffer descriptors */
+	if (c0data->descriptors[0].config & SDMA_BD_DONE)
+		trace_sdma_error("STOP_STAT turned off without clearing DONE bit");
+
+
+	for (int i = 0; i < 1000; i++) {
+		dcache_invalidate_region(c0data->descriptors, sizeof(c0data->descriptors));
+		if (!(c0data->descriptors[0].config & SDMA_BD_DONE)) {
+			trace_sdma_error("DONE bit was eventually cleared, i = %d", i);
+			break;
+		}
+	}
+
 	/* Switch to dynamic context if needed */
 	if ((dma_reg_read(dma, SDMA_CONFIG) & SDMA_CONFIG_CSM_MSK) == SDMA_CONFIG_CSM_STATIC)
 		dma_reg_update_bits(dma, SDMA_CONFIG, SDMA_CONFIG_CSM_MSK, SDMA_CONFIG_CSM_DYN);
@@ -139,8 +153,22 @@ static void sdma_register_init(struct dma *dma) {
 	dma_reg_write(dma, SDMA_MC0PTR, (uint32_t)ccb_arr);
 }
 
+static void sdma_init_c0(struct dma *dma) {
+	struct dma_chan_data *c0 = &dma->chan[0];
+	struct sdma_pdata *sdma_pdata = dma_get_drvdata(dma);
+	struct sdma_chan *pdata = sdma_pdata->chan_pdata;
+
+	memset(pdata->descriptors, 0, sizeof(pdata->descriptors));
+	pdata->descriptor_count = 0;
+	pdata->ctx = sdma_pdata->contexts;
+	pdata->ccb = sdma_pdata->ccb_array;
+	pdata->hw_event = -1;
+	dma_chan_set_data(c0, pdata);
+}
+
 static int sdma_boot(struct dma *dma) {
 	sdma_register_init(dma);
+	sdma_init_c0(dma);
 	/* Boot cannot fail */
 	return 0;
 }
@@ -333,9 +361,8 @@ static struct dma_chan_data *sdma_channel_get(struct dma *dma, unsigned chan) {
 		if (channel->status != COMP_STATE_INIT)
 			continue;
 
-		/* We don't have any context to setup per channel, so
-		 * we're done, we can just return this channel
-		 */
+		cdata->ctx = pdata->contexts + i;
+		cdata->ccb = pdata->ccb_array + i;
 
 		channel->status = COMP_STATE_READY;
 		dma_chan_set_data(channel, cdata);
