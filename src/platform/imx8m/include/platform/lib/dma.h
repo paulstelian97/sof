@@ -30,7 +30,7 @@
 #define SDMA2_IRQ	7 /* TODO What? */
 #define SDMA2_IRQ_NAME	"irqstr2" /* TODO find the correct one */
 
-#define SDMA_CORE_RATIO 1/* Enable ACR bit as it's needed for this platform */
+#define SDMA_CORE_RATIO 0/* Enable ACR bit as it's needed for this platform */
 
 #endif /* __PLATFORM_LIB_DMA_H__ */
 
