@@ -113,8 +113,13 @@ static int sdma_run_c0(struct dma *dma, uint8_t cmd, uint32_t buf_addr, uint16_t
 	if (c0data->descriptors[0].config & SDMA_BD_DONE)
 		trace_sdma_error("STOP_STAT turned off without clearing DONE bit");
 
+	uint64_t delta = clock_ms_to_ticks(PLATFORM_DEFAULT_CLOCK, 1) / 1000;
+
+	if (!delta)
+		delta = 1;
 
 	for (int i = 0; i < 1000; i++) {
+		wait_delay(delta);
 		dcache_invalidate_region(c0data->descriptors, sizeof(c0data->descriptors));
 		if (!(c0data->descriptors[0].config & SDMA_BD_DONE)) {
 			trace_sdma_error("DONE bit was eventually cleared, i = %d", i);
