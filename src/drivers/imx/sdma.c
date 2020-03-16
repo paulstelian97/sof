@@ -392,8 +392,8 @@ static void sdma_channel_put(struct dma_chan_data *channel) {
 	if (channel->status == COMP_STATE_INIT)
 		return; /* Channel was already free */
 	sdma_interrupt(channel, DMA_IRQ_CLEAR);
-	sdma_set_overrides(channel, false, false);
 	sdma_clear_event(channel);
+	sdma_set_overrides(channel, false, false);
 	channel->status = COMP_STATE_INIT;
 }
 
