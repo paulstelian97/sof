@@ -104,7 +104,7 @@ static int sdma_run_c0(struct dma *dma, uint8_t cmd, uint32_t buf_addr, uint16_t
 	/* 1 is BIT(0) for channel 0, the bit will be cleared as the
 	 * channel finishes
 	 */
-	ret = poll_for_register_delay(dma_base(dma) + SDMA_STOP_STAT, 1, 0, 400000);
+	ret = poll_for_register_delay(dma_base(dma) + SDMA_STOP_STAT, 1, 0, 1000);
 	if (ret >= 0)
 		ret = 0;
 
