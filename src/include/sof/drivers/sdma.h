@@ -75,6 +75,7 @@
 #define SDMA_CHNPRI(chan)	(0x0100 + 4 * (chan))
 
 #define SDMA_DEFPRI		4
+#define SDMA_MAXPRI		7
 
 #define SDMA_HWEVENTS_COUNT	48
 

@@ -108,25 +108,6 @@ static int sdma_run_c0(struct dma *dma, uint8_t cmd, uint32_t buf_addr, uint16_t
 	if (ret >= 0)
 		ret = 0;
 
-	dcache_invalidate_region(c0data->descriptors, sizeof(c0data->descriptors));
-	/* Check buffer descriptors */
-	if (c0data->descriptors[0].config & SDMA_BD_DONE)
-		trace_sdma_error("STOP_STAT turned off without clearing DONE bit");
-
-	uint64_t delta = clock_ms_to_ticks(PLATFORM_DEFAULT_CLOCK, 1) / 1000;
-
-	if (!delta)
-		delta = 1;
-
-	for (int i = 0; i < 1000; i++) {
-		wait_delay(delta);
-		dcache_invalidate_region(c0data->descriptors, sizeof(c0data->descriptors));
-		if (!(c0data->descriptors[0].config & SDMA_BD_DONE)) {
-			trace_sdma_error("DONE bit was eventually cleared, i = %d", i);
-			break;
-		}
-	}
-
 	/* Switch to dynamic context if needed */
 	if ((dma_reg_read(dma, SDMA_CONFIG) & SDMA_CONFIG_CSM_MSK) == SDMA_CONFIG_CSM_STATIC)
 		dma_reg_update_bits(dma, SDMA_CONFIG, SDMA_CONFIG_CSM_MSK, SDMA_CONFIG_CSM_DYN);
@@ -188,7 +169,9 @@ static int sdma_upload_context(struct dma_chan_data *chan) {
 	/* Last parameters are unneeded for this command and are ignored;
 	 * set to 0.
 	 */
-	return sdma_run_c0(chan->dma, SDMA_CMD_C0_SETCTX(chan->index), (uint32_t)pdata->ctx, 0, 0);
+	return sdma_run_c0(chan->dma, SDMA_CMD_C0_SET_DM, (uint32_t)pdata->ctx,
+			   SDMA_SRAM_CONTEXTS_BASE + chan->index * sizeof(*pdata->ctx) / 4,
+			   sizeof(*pdata->ctx) / 4);
 }
 
 __attribute__((unused)) // TODO use
@@ -198,7 +181,9 @@ static int sdma_download_context(struct dma_chan_data *chan) {
 	/* Last parameters are unneeded for this command and are ignored;
 	 * set to 0.
 	 */
-	int ret = sdma_run_c0(chan->dma, SDMA_CMD_C0_GETCTX(chan->index), (uint32_t)pdata->ctx, 0, 0);
+	int ret = sdma_run_c0(chan->dma, SDMA_CMD_C0_GET_DM, (uint32_t)pdata->ctx,
+			      SDMA_SRAM_CONTEXTS_BASE + chan->index * sizeof(*pdata->ctx) / 4,
+			      sizeof(*pdata->ctx) / 4);
 	dcache_invalidate_region(pdata->ctx, sizeof(*pdata->ctx));
 
 	return ret;
@@ -425,7 +410,10 @@ static int sdma_start(struct dma_chan_data *channel)
 		dma_reg_write(channel->dma, SDMA_HSTART, BIT(channel->index));
 
 	/* Set a runnable channel priority */
-	dma_reg_write(channel->dma, SDMA_CHNPRI(channel->index), SDMA_DEFPRI);
+	if (channel->index)
+		dma_reg_write(channel->dma, SDMA_CHNPRI(channel->index), SDMA_DEFPRI);
+	else
+		dma_reg_write(channel->dma, SDMA_CHNPRI(0), SDMA_MAXPRI);
 
 	trace_sdma_error("DMA start channel %d BDs start at 0x%08x",
 			 channel->index, (uintptr_t)pdata->descriptors);
@@ -713,6 +701,10 @@ static int sdma_pm_context_restore(struct dma *dma) {
 }
 
 static int sdma_interrupt(struct dma_chan_data *channel, enum dma_irq_cmd cmd) {
+	if (!channel->index) {
+		trace_sdma_error("sdma_interrupt called for channel 0; ignoring command");
+		return 0;
+	}
 	switch (cmd) {
 	case DMA_IRQ_STATUS_GET:
 		return dma_reg_read(channel->dma, SDMA_INTR) & BIT(channel->index);
