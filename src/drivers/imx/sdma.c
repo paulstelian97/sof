@@ -546,12 +546,15 @@ static int sdma_set_config(struct dma_chan_data *channel, struct dma_sg_config *
 	case DMA_DIR_MEM_TO_DEV:
 		src_may_change = true; dst_may_change = false;
 		handshake = config->dest_dev;
+		pdata->sdma_chan_type = SDMA_CHAN_TYPE_AP2MCU;
 		break;
 	case DMA_DIR_DEV_TO_MEM:
 		src_may_change = false; dst_may_change = true;
 		handshake = config->src_dev;
+		pdata->sdma_chan_type = SDMA_CHAN_TYPE_MCU2AP;
 		break;
 	case DMA_DIR_MEM_TO_MEM:
+		pdata->sdma_chan_type = SDMA_CHAN_TYPE_AP2AP;
 		/* Fallthrough, TODO implement if desired, both are true */
 	default:
 		trace_sdma_error("sdma_set_config: Unsupported direction %d", config->direction);
