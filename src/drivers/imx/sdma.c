@@ -591,6 +591,8 @@ static int sdma_set_config(struct dma_chan_data *channel, struct dma_sg_config *
 	 * stored, upload context and have everything be ready.
 	 */
 
+	pdata->fifo_paddr = fifo_paddr;
+
 	/* The handshake currently only contains the hardware channel
 	 * number itself.
 	 */
@@ -613,7 +615,7 @@ static int sdma_set_config(struct dma_chan_data *channel, struct dma_sg_config *
 			width = config->dest_width;
 		pdata->descriptors[i].config =
 			SDMA_BD_COUNT(config->elem_array.elems[i].size) |
-			SDMA_BD_EXTD | SDMA_BD_CMD(SDMA_CMD_XFER_SIZE(width));
+			SDMA_BD_CMD(SDMA_CMD_XFER_SIZE(width));
 		if (!config->irq_disabled)
 			pdata->descriptors[i].config |= SDMA_BD_INT;
 		if (dst_may_change) {
@@ -626,6 +628,8 @@ static int sdma_set_config(struct dma_chan_data *channel, struct dma_sg_config *
 			 * copy() is called during preload.
 			 */
 		}
+		if (src_may_change && dst_may_change)
+			pdata->descriptors[i].config |= SDMA_BD_EXTD;
 	}
 	/* If we are in a cyclic situation -- we typically are -- we
 	 * must configure the last BD as such.
