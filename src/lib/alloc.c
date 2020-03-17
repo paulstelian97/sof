@@ -1044,6 +1044,8 @@ void heap_trace_all(int force)
 		heap_trace(memmap->buffer, PLATFORM_HEAP_BUFFER);
 		trace_mem_init("heap: runtime status");
 		heap_trace(memmap->runtime, PLATFORM_HEAP_RUNTIME);
+		trace_mem_init("heap: sys runtime status");
+		heap_trace(memmap->system_runtime, PLATFORM_HEAP_SYSTEM_RUNTIME);
 	}
 
 	memmap->heap_trace_updated = 0;

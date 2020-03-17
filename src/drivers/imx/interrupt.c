@@ -252,6 +252,8 @@ static inline void handle_irq_batch(struct irq_cascade_desc *cascade,
 			/* Mask this interrupt so it won't happen again */
 			irqstr_mask_int(line_index * IRQSTR_IRQS_PER_LINE + bit);
 		}
+
+		trace_irq_error("irq_handler(): handled %d", line_index * IRQSTR_IRQS_PER_LINE + bit);
 	}
 }
 
@@ -372,6 +374,19 @@ int irqstr_get_sof_int(int irqstr_int)
 	return interrupt_get_irq(irq, irq_name_irqsteer[line]);
 }
 
+static void hndlr(void *arg) {
+	int i = (int)arg;
+
+	trace_irq_error("IRQ_STEER: Handler for %d called", i);
+}
+
+void register_dummy_irqstr(void);
+void register_dummy_irqstr(void)
+{
+	for (int i = 0; i < IRQSTR_IRQS_NUM; i++)
+		interrupt_register(irqstr_get_sof_int(i), hndlr, (void *)i);
+}
+
 void platform_interrupt_init(void)
 {
 	int i;
@@ -380,11 +395,21 @@ void platform_interrupt_init(void)
 	 * initializing
 	 */
 	irqstr_disable_hw();
+
+	trace_irq_error("irqstr_chan: 0x%08x", irqstr_read(IRQSTR_CHANCTL));
 	/* Mask every external IRQ first */
 	for (i = 0; i < IRQSTR_IRQS_REGISTERS_NUM; i++)
 		irqstr_write(IRQSTR_CH_MASK(i), 0);
+	/* DEBUG ONLY
+	 * Unmask all external IRQs; they will be masked at first IRQ
+	 * without handler
+	 */
+	for (i = 0; i < IRQSTR_IRQS_REGISTERS_NUM; i++)
+		irqstr_write(IRQSTR_CH_MASK(i), 0xFFFFFFFF);
 	/* Turn on the IRQ_STEER hardware */
 	irqstr_enable_hw();
+
+	trace_irq_error("irqstr_chan: 0x%08x", irqstr_read(IRQSTR_CHANCTL));
 
 	for (i = 0; i < ARRAY_SIZE(dsp_irq); i++)
 		interrupt_cascade_register(dsp_irq + i);

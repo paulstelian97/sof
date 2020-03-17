@@ -46,6 +46,7 @@ int notifier_register(void *receiver, void *caller, enum notify_id type,
 	if (!handle) {
 		trace_notifier_error("notifier_register() error: callback "
 				     "handle allocation failed.");
+		heap_trace_all(1);
 		return -ENOMEM;
 	}
 
