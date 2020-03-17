@@ -346,6 +346,7 @@ int schedule_task_init_ll(struct task *task,
 
 	if (!ll_pdata) {
 		trace_ll_error("schedule_task_init_ll() error: alloc failed");
+		heap_trace_all(1);
 		return -ENOMEM;
 	}
 

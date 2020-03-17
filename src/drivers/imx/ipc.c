@@ -44,7 +44,7 @@ static void irq_handler(void *arg)
 	/* Interrupt arrived, check src */
 	status = imx_mu_read(IMX_MU_xSR);
 
-	tracev_ipc("ipc: irq isr 0x%x", status);
+	//tracev_ipc("ipc: irq isr 0x%x", status);
 
 	/* reply message(done) from host */
 	if (status & IMX_MU_xSR_GIPn(1)) {
@@ -129,7 +129,7 @@ int ipc_platform_send_msg(struct ipc_msg *msg)
 	/* now send the message */
 	mailbox_dspbox_write(0, msg->tx_data, msg->tx_size);
 	list_item_del(&msg->list);
-	tracev_ipc("ipc: msg tx -> 0x%x", msg->header);
+	//tracev_ipc("ipc: msg tx -> 0x%x", msg->header);
 
 	ipc->is_notification_pending = true;
 
