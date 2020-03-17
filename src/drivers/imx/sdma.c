@@ -118,11 +118,17 @@ static int sdma_run_c0(struct dma *dma, uint8_t cmd, uint32_t buf_addr, uint16_t
 	return ret;
 }
 
-static void sdma_register_init(struct dma *dma) {
+static int sdma_register_init(struct dma *dma) {
+	int ret;
 	trace_sdma_error("sdma_register_init");
 	dma_reg_write(dma, SDMA_RESET, 1);
-	/* Delay 10us, roughly */
-	wait_delay(ceil_divide(clock_ms_to_ticks(PLATFORM_DEFAULT_CLOCK, 1), 100));
+	/* Wait for 10us */
+	ret = poll_for_register_delay(dma_base(dma) + SDMA_RESET, 1, 0, 1000);
+	if (ret < 0) {
+		trace_sdma_error("SDMA reset error, base address 0x%08x",
+				 (uintptr_t)dma_base(dma));
+		return ret;
+	}
 	dma_reg_write(dma, SDMA_INTR, MASK(31, 0)); /* Ack all interrupts, they're leftover */
 #if SDMA_CORE_RATIO
 	dma_reg_update_bits(dma, SDMA_CONFIG, SDMA_CONFIG_CSM_MSK | SDMA_CONFIG_ACR, SDMA_CONFIG_ACR);
@@ -139,6 +145,8 @@ static void sdma_register_init(struct dma *dma) {
 	/* Write ccb_arr pointer to SDMA controller */
 	struct sdma_ccb *ccb_arr = (((struct sdma_pdata *)dma_get_drvdata(dma))->ccb_array);
 	dma_reg_write(dma, SDMA_MC0PTR, (uint32_t)ccb_arr);
+
+	return 0;
 }
 
 static void sdma_init_c0(struct dma *dma) {
@@ -157,10 +165,11 @@ static void sdma_init_c0(struct dma *dma) {
 
 static int sdma_boot(struct dma *dma) {
 	trace_sdma_error("sdma_boot");
-	sdma_register_init(dma);
+	int ret = sdma_register_init(dma);
+	if (ret < 0)
+		return ret;
 	sdma_init_c0(dma);
 	trace_sdma_error("sdma_boot done");
-	/* Boot cannot fail */
 	return 0;
 }
 
