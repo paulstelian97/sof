@@ -120,6 +120,8 @@ SHARED_DATA struct timer timer = {
 	.irq = IRQ_NUM_TIMER0,
 };
 
+void register_dummy_irqstr(void);
+
 int platform_boot_complete(uint32_t boot_message)
 {
 	uint32_t mb_offset = 0;
@@ -151,6 +153,8 @@ int platform_boot_complete(uint32_t boot_message)
 	 * for SRC component.
 	 */
 	/* clock_set_freq(CLK_CPU, CLK_DEFAULT_CPU_HZ); */
+	/* We can now enable all interrupts */
+	register_dummy_irqstr();
 
 	return 0;
 }
