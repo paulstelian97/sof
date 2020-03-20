@@ -120,6 +120,8 @@ SHARED_DATA struct timer timer = {
 	.irq = IRQ_NUM_TIMER0,
 };
 
+void register_dummy_irqstr(void);
+
 int platform_boot_complete(uint32_t boot_message)
 {
 	uint32_t mb_offset = 0;
@@ -151,6 +153,8 @@ int platform_boot_complete(uint32_t boot_message)
 	 * for SRC component.
 	 */
 	/* clock_set_freq(CLK_CPU, CLK_DEFAULT_CPU_HZ); */
+	/* We can now enable all interrupts */
+	register_dummy_irqstr();
 
 	return 0;
 }
@@ -182,10 +186,10 @@ int platform_init(struct sof *sof)
 	if (ret < 0)
 		return -ENODEV;
 
-	/* Init EDMA platform domain */
+	/* Init SDMA platform domain */
 	sof->platform_dma_domain =
-		dma_multi_chan_domain_init(&sof->dma_info->dma_array[0],
-					   1, PLATFORM_DEFAULT_CLOCK, false);
+		dma_multi_chan_domain_init(&sof->dma_info->dma_array[1],
+					   1, PLATFORM_DEFAULT_CLOCK, true);
 	scheduler_init_ll(sof->platform_dma_domain);
 
 	/* initialize the host IPC mechanims */

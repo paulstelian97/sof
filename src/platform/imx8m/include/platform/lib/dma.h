@@ -15,12 +15,22 @@
 /* max number of supported DMA channels */
 #define PLATFORM_MAX_DMA_CHAN	32
 
-#define DMA_ID_EDMA0	0
+#define DMA_ID_SDMA2	0
 #define DMA_ID_HOST	1
 
-#define dma_chan_irq(dma, chan) \
-	irqstr_get_sof_int(((int *)dma->plat_data.drv_plat_data)[chan])
+#define dma_chan_irq(dma, chan) dma_irq(dma)
 #define dma_chan_irq_name(dma, chan) dma_irq_name(dma)
+
+/* SDMA2 specific data */
+
+/* Interrupts must be set up interestingly -- shift them all by 32 like
+ * on the other platforms.
+ */
+
+#define SDMA2_IRQ	7 /* TODO What? */
+#define SDMA2_IRQ_NAME	"irqstr2" /* TODO find the correct one */
+
+#define SDMA_CORE_RATIO 1/* Enable ACR bit as it's needed for this platform */
 
 #endif /* __PLATFORM_LIB_DMA_H__ */
 
