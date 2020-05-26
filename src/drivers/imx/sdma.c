@@ -289,6 +289,13 @@ static int sdma_download_contexts_all(struct dma *dma)
 	return ret;
 }
 
+static void sdma_handler(void *arg)
+{
+	struct dma *dma = arg;
+
+	trace_sdma("sdma@%08x INTR=0x%08x", dma_base(dma), dma_reg_read(dma, SDMA_INTR));
+}
+
 /* Below SOF related functions will be placed */
 
 static int sdma_probe(struct dma *dma)
@@ -359,6 +366,8 @@ static int sdma_probe(struct dma *dma)
 		tr_err(&sdma_tr, "SDMA: Unable to boot");
 		goto err;
 	}
+
+	interrupt_register(interrupt_get_irq(dma_irq(dma), dma_irq_name(dma)), sdma_handler, dma);
 
 	goto out;
 err:
@@ -785,6 +794,9 @@ static int sdma_prep_desc(struct dma_chan_data *channel,
 	pdata->ccb->current_bd_paddr = (uint32_t)pdata->desc;
 	pdata->desc_count = config->elem_array.count;
 
+	dcache_writeback_region(pdata->descriptors, sizeof(pdata->descriptors[0]) * pdata->descriptor_count);
+	dcache_writeback_region(pdata->ccb, sizeof(*pdata->ccb));
+	dcache_writeback_region(pdata, sizeof(*pdata));
 	/* Context must be configured, dependent on transfer direction */
 
 	switch (pdata->sdma_chan_type) {

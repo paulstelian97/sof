@@ -346,10 +346,13 @@ static inline void irq_handler(void *data, uint32_t line_index)
 		 */
 
 		if (!--tries) {
+			status = get_irqsteer_interrupts(line_index);
 			tries = IRQ_MAX_TRIES;
+#if 0
 			tr_err(&irq_i_tr, "irq_handler(): IRQ storm, status "
 			       PRIx64,
 			       get_irqsteer_interrupts(line_index));
+#endif
 		}
 	}
 

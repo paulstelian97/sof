@@ -18,8 +18,13 @@ struct sof;
 
 #define CPU_DEFAULT_IDX		0
 
+#if IMX8X
+#define CLK_DEFAULT_CPU_HZ	640000000
+#define CLK_MAX_CPU_HZ		640000000
+#else
 #define CLK_DEFAULT_CPU_HZ	666000000
 #define CLK_MAX_CPU_HZ		666000000
+#endif
 
 #define NUM_CLOCKS	1
 

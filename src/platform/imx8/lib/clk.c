@@ -13,9 +13,15 @@
 #include <sof/sof.h>
 #include <sof/spinlock.h>
 
+#if IMX8X
+const struct freq_table platform_cpu_freq[] = {
+	{ 640000000, 640000 },
+};
+#else
 const struct freq_table platform_cpu_freq[] = {
 	{ 666000000, 666000 },
 };
+#endif
 
 STATIC_ASSERT(NUM_CPU_FREQ == ARRAY_SIZE(platform_cpu_freq),
 	      invalid_number_of_cpu_frequencies);
